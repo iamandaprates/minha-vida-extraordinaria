@@ -1,0 +1,2 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #25243a; background: #fbfbff; font-synthesis: none; --ink:#26243d; --muted:#78758d; --line:#e8e7f0; --pink:#f3197d; --pink-deep:#d80c67; --orange:#ff8a32; --yellow:#ffd23f; --green:#48c972; --blue:#5488ff; --violet:#8767ed; --white:#fff; --radius:20px; --shadow:0 14px 38px rgba(54, 37, 107, .08); }
+* { box-sizing: border-box; } body { margin: 0; min-width: 320px; } button, input { font: inherit; } button { cursor: pointer; }

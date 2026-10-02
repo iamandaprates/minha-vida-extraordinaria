@@ -1,0 +1,1 @@
+export function MobileNav() { return <nav className="mobile-nav" aria-label="Navegação móvel"><button className="selected">✦<span>Central</span></button><button>□<span>Agenda</span></button><button className="add" aria-label="Adicionar nova demanda">+</button><button>✓<span>Execução</span></button><button>◒<span>Hábitos</span></button></nav>; }
