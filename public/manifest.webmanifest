@@ -1,0 +1,10 @@
+{
+  "name": "Minha Vida Extraordinária",
+  "short_name": "Minha Vida",
+  "description": "Seu sistema pessoal de gestão de vida.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfbff",
+  "theme_color": "#f3197d",
+  "lang": "pt-BR"
+}
