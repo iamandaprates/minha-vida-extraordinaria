@@ -6,11 +6,11 @@ export interface LifeArea extends OwnedEntity { name: string; color: string; ico
 export interface Vision extends OwnedEntity { statement: string; areaId?: EntityId; }
 export interface Goal extends OwnedEntity { title: string; areaId: EntityId; visionId?: EntityId; targetDate?: string; status: 'active' | 'paused' | 'done'; }
 export interface Project extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; status: 'active' | 'paused' | 'complete'; lastActivityAt?: ISODateTime; }
-export interface Task extends OwnedEntity { title: string; projectId?: EntityId; goalId?: EntityId; areaId?: EntityId; dueAt?: ISODateTime; status: 'open' | 'done'; }
-export interface Demand extends OwnedEntity { title: string; areaId?: EntityId; status: 'inbox' | 'planned' | 'done'; }
+export interface Task extends OwnedEntity { title: string; projectId?: EntityId; goalId?: EntityId; areaId?: EntityId; dueAt?: ISODateTime; priority?: 'low' | 'normal' | 'high'; status: 'open' | 'done'; }
+export interface Demand extends OwnedEntity { title: string; areaId?: EntityId; priority?: 'low' | 'normal' | 'high'; status: 'inbox' | 'planned' | 'done'; }
 export interface Habit extends OwnedEntity { title: string; areaId?: EntityId; frequency: 'daily' | 'weekly'; }
 export interface HabitCheckIn extends OwnedEntity { habitId: EntityId; occurredAt: ISODateTime; value: boolean; }
-export interface CalendarEvent extends OwnedEntity { title: string; startsAt: ISODateTime; endsAt: ISODateTime; source: 'manual' | 'google'; externalId?: string; recurrenceId?: string; }
+export interface CalendarEvent extends OwnedEntity { title: string; startsAt: ISODateTime; endsAt: ISODateTime; areaId?: EntityId; category?: 'health' | 'finance' | 'professional' | 'personal' | 'social' | 'study' | 'leisure'; status: 'planned' | 'confirmed' | 'completed' | 'cancelled'; source: 'manual' | 'google'; externalId?: string; recurrenceId?: string; }
 export interface ExecutionRecord extends OwnedEntity { taskId?: EntityId; areaId?: EntityId; occurredAt: ISODateTime; durationMinutes?: number; note?: string; }
 export interface Study extends OwnedEntity { title: string; areaId?: EntityId; status: 'planned' | 'active' | 'completed'; }
 export interface FinanceEntry extends OwnedEntity { amount: number; type: 'income' | 'expense'; areaId?: EntityId; occurredAt: ISODateTime; }

@@ -46,3 +46,9 @@ Verificações:
 npm run check
 npm run build
 ```
+
+## Batch 1 — Minha Vida
+
+Central, Identidade e Visão são experiências navegáveis e conectadas a um único estado de demonstração. A Central é uma camada de leitura: tarefas e demandas são criadas e concluídas em **Execução**, e a mudança é refletida imediatamente na Central. Os dados de demonstração ficam isolados em `src/data/demo.ts` e a interface informa explicitamente quando uma edição é apenas desta sessão; uma implementação cloud substituirá esse adaptador no próximo batch.
+
+Também foram incluídos: busca global por registros demonstrativos, captura rápida de demanda, agenda com preparação visual para Google Calendar, sinais derivados da relevância dos registros de demonstração, manifesto de Identidade editável e versão histórica recolhível, além do mapa macro de Visão.
