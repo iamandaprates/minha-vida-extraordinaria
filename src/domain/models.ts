@@ -2,7 +2,10 @@
 export type EntityId = string;
 export type ISODateTime = string;
 export interface OwnedEntity { id: EntityId; userId: EntityId; createdAt: ISODateTime; updatedAt: ISODateTime; }
-export interface LifeArea extends OwnedEntity { name: string; color: string; icon?: string; }
+export type AreaDiagnostic = 'well' | 'attention' | 'critical' | 'unknown';
+export interface LifeArea extends OwnedEntity { name: string; description: string; color: string; icon?: string; currentScore?: number; lastAssessmentAt?: ISODateTime; diagnostic: AreaDiagnostic; }
+export interface LifeAssessment extends OwnedEntity { period: string; assessedAt: ISODateTime; scores: Record<EntityId, number>; }
+export interface AreaNote extends OwnedEntity { areaId: EntityId; content: string; }
 export interface Vision extends OwnedEntity { statement: string; areaId?: EntityId; }
 export interface Goal extends OwnedEntity { title: string; areaId: EntityId; visionId?: EntityId; targetDate?: string; status: 'active' | 'paused' | 'done'; }
 export interface Project extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; status: 'active' | 'paused' | 'complete'; lastActivityAt?: ISODateTime; }

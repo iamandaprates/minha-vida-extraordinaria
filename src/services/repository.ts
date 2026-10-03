@@ -11,3 +11,5 @@ export interface AuthService { currentUser(): Promise<{ id: EntityId; email?: st
 export interface CalendarProvider { connect(): Promise<void>; listEvents(from: string, to: string): Promise<CalendarEvent[]>; upsertEvent(event: CalendarEvent): Promise<CalendarEvent>; }
 /** Adapter boundary for future bidirectional Google Calendar synchronization. */
 export interface GoogleCalendarSync { pull(from: string, to: string): Promise<CalendarEvent[]>; push(event: CalendarEvent): Promise<CalendarEvent>; }
+/** Area records use entity references so future Goals, Projects and Actions are never duplicated. */
+export interface AreaRelations { goalIds: EntityId[]; projectIds: EntityId[]; taskIds: EntityId[]; eventIds: EntityId[]; }
