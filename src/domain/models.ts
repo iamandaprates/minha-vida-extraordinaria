@@ -6,10 +6,13 @@ export type AreaDiagnostic = 'well' | 'attention' | 'critical' | 'unknown';
 export interface LifeArea extends OwnedEntity { name: string; description: string; color: string; icon?: string; currentScore?: number; lastAssessmentAt?: ISODateTime; diagnostic: AreaDiagnostic; }
 export interface LifeAssessment extends OwnedEntity { period: string; assessedAt: ISODateTime; scores: Record<EntityId, number>; }
 export interface AreaNote extends OwnedEntity { areaId: EntityId; content: string; }
+/** Self diagnostic per life area. Static area data (name, color, icon) stays in src/data/areas.ts. */
+export interface AreaState extends OwnedEntity { areaId: EntityId; diagnostic: AreaDiagnostic; }
 export interface Vision extends OwnedEntity { statement: string; areaId?: EntityId; }
 export interface Goal extends OwnedEntity { title: string; areaId: EntityId; visionId?: EntityId; targetDate?: string; status: 'active' | 'paused' | 'done'; }
 export interface Project extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; status: 'active' | 'paused' | 'complete'; lastActivityAt?: ISODateTime; }
-export interface Task extends OwnedEntity { title: string; projectId?: EntityId; goalId?: EntityId; areaId?: EntityId; dueAt?: ISODateTime; priority?: 'low' | 'normal' | 'high'; status: 'open' | 'done'; }
+/** dueAt holds a calendar date (YYYY-MM-DD) for now; completedAt is set when status becomes done. */
+export interface Task extends OwnedEntity { title: string; description?: string; projectId?: EntityId; goalId?: EntityId; areaId?: EntityId; dueAt?: ISODateTime; priority?: 'low' | 'normal' | 'high'; status: 'open' | 'done'; completedAt?: ISODateTime; }
 export interface Demand extends OwnedEntity { title: string; areaId?: EntityId; priority?: 'low' | 'normal' | 'high'; status: 'inbox' | 'planned' | 'done'; }
 export interface Habit extends OwnedEntity { title: string; areaId?: EntityId; frequency: 'daily' | 'weekly'; }
 export interface HabitCheckIn extends OwnedEntity { habitId: EntityId; occurredAt: ISODateTime; value: boolean; }
