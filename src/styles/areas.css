@@ -1,0 +1,37 @@
+/* Complemento do modulo Areas da Vida. Importado depois de app.css em main.tsx, sem alterar nenhuma regra existente de outras paginas. */
+.indicator-strip{grid-template-columns:repeat(auto-fit,minmax(138px,1fr))}
+.record-row{display:flex;align-items:center;gap:10px;padding:8px 0}
+.record-row+.record-row{border-top:1px solid var(--line)}
+.record-main{flex:1;min-width:0}
+.record-main b{display:block;font-size:12px}
+.record-main small{display:inline-block;margin:3px 10px 0 0}
+.record-row .task-check{width:22px;height:22px;display:grid;place-items:center;font-size:13px;padding:0}
+.record-row .task-check.checked{background:var(--pink);border-color:var(--pink)}
+.record-row.is-done .record-main b{text-decoration:line-through;color:var(--muted)}
+.record-list span.done{color:#299c58}
+.record-list span.late{color:#d74b5f}
+.record-edit{border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:700;padding:6px}
+.record-edit:hover{color:var(--pink)}
+.record-dialog{max-height:90vh;overflow-y:auto}
+.record-dialog select,.record-dialog textarea{border:1px solid var(--line);border-radius:11px;padding:13px;width:100%;outline-color:var(--pink);margin-bottom:9px;font:inherit;font-size:14px;background:#fff}
+.record-dialog textarea{min-height:76px;resize:vertical}
+.field-label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:6px 0 5px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.form-error{color:#d74b5f!important;font-size:12px!important}
+.dialog-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.danger-button{border:0;background:transparent;color:#d74b5f;font-weight:700;font-size:12px;padding:8px 0}
+.score-readonly{list-style:none;padding:0;margin:12px 0 20px;display:grid;grid-template-columns:1fr 1fr;gap:8px 20px}
+.score-readonly li{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.score-readonly li span{display:flex;gap:6px;align-items:center}
+.score-readonly li i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.page-intro.wrap-actions{flex-wrap:wrap;gap:14px}
+@media(max-width:900px){.indicator-strip{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){
+  .indicator-strip{grid-template-columns:repeat(2,1fr)}
+  .field-row,.score-readonly{grid-template-columns:1fr}
+  /* Corrige .pink-button{display:none}: botoes de acao do modulo Areas e botoes dentro de dialogos continuam visiveis. Central, Identidade, Visao, Agenda e Execucao seguem como antes. */
+  .pink-button.keep-mobile,.dialog-backdrop .pink-button{display:inline-block}
+  .page-intro.wrap-actions{flex-direction:column;align-items:flex-start}
+  .record-row{flex-wrap:wrap}
+  .record-main{flex-basis:calc(100% - 140px)}
+}
