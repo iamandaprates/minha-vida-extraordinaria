@@ -4,19 +4,14 @@ import type { CloudRepository } from './repository';
 /** Namespace for every key written by the app. Bump the version when the stored shape needs a migration. */
 export const STORAGE_PREFIX = 'mve:v1';
 
-type KeyValueStorage = Pick<Storage, 'getItem' | 'setItem'>;
+type KeyValueStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
-const memoryStore = new Map<string, string>();
-const memoryStorage: KeyValueStorage = { getItem: key => memoryStore.get(key) ?? null, setItem: (key, value) => { memoryStore.set(key, value); } };
-
-/** Uses localStorage when it works. Falls back to memory (private mode, blocked storage) so the app never crashes. */
+/** Uses localStorage when it works. If browser storage is unavailable, the caller receives the real persistence error. */
 function resolveStorage(): KeyValueStorage {
-  try {
-    const storage = window.localStorage;
-    storage.setItem('__mve_probe__', '1');
-    storage.removeItem('__mve_probe__');
-    return storage;
-  } catch { return memoryStorage; }
+  const storage = window.localStorage;
+  storage.setItem('__mve_probe__', '1');
+  storage.removeItem('__mve_probe__');
+  return storage;
 }
 
 /**
@@ -43,7 +38,9 @@ export class LocalStorageRepository<T extends OwnedEntity> implements CloudRepos
     return [];
   }
 
-  private write(userId: EntityId, items: T[]) { resolveStorage().setItem(this.key(userId), JSON.stringify(items)); }
+  private write(userId: EntityId, items: T[]) {
+    resolveStorage().setItem(this.key(userId), JSON.stringify(items));
+  }
 
   async list(userId: EntityId) { return this.read(userId); }
   async get(userId: EntityId, id: EntityId) { return this.read(userId).find(item => item.id === id) ?? null; }
