@@ -1,2 +1,6 @@
 import type { ButtonHTMLAttributes, PropsWithChildren } from 'react';
-export function Button({ children, className = '', ...props }: PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement>>) { return <button className={`button ${className}`} {...props}>{children}</button>; }
+
+type Variant = 'primary' | 'ghost' | 'soft' | 'light';
+export function Button({ children, className = '', variant = 'soft', type = 'button', ...props }: PropsWithChildren<ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }>) {
+  return <button type={type} className={`button button-${variant} ${className}`} {...props}>{children}</button>;
+}

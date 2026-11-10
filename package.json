@@ -1,5 +1,5 @@
 {
-  "name": "minha-vida-extraordinaria",
+  "name": "mive",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "check": "tsc -b"
+    "check": "tsc -b",
+    "mive": "tsx scripts/mive.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
+    "lucide-react": "^0.577.0",
     "react": "latest",
     "react-dom": "latest"
   },
@@ -19,6 +21,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
+    "tsx": "^4.23.15",
     "typescript": "latest",
     "vite": "latest"
   }

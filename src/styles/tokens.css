@@ -1,2 +1,108 @@
-:root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #25243a; background: #fbfbff; font-synthesis: none; --ink:#26243d; --muted:#78758d; --line:#e8e7f0; --pink:#f3197d; --pink-deep:#d80c67; --orange:#ff8a32; --yellow:#ffd23f; --green:#48c972; --blue:#5488ff; --violet:#8767ed; --white:#fff; --radius:20px; --shadow:0 14px 38px rgba(54, 37, 107, .08); }
-* { box-sizing: border-box; } body { margin: 0; min-width: 320px; } button, input { font: inherit; } button { cursor: pointer; }
+/* Mive · design tokens
+   Minimalismo magnético: vidro translúcido, rosa protagonista, Inter + serif de alta costura. */
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+
+  /* Typography */
+  --display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, "Times New Roman", serif;
+  --serif: Georgia, "Times New Roman", serif;
+
+  /* Palette */
+  --bg: #fbfbff;
+  --ink: #26243d;
+  --ink-soft: #4a4762;
+  --onyx: #0f0e13;
+  --muted: #78758d;
+  --faint: #a4a1b5;
+  --line: rgba(38, 36, 61, 0.08);
+  --pink: #f3197d;
+  --pink-deep: #d80c67;
+  --magenta: #ff5c72;
+  --violet: #8767ed;
+  --green: #48c972;
+  --orange: #ff8a32;
+  --yellow: #ffd23f;
+  --blue: #5488ff;
+  --surface: #ffffff;
+  --logo-ink: var(--onyx);
+
+  /* Tones used by tags and signals */
+  --tone-flow: #2f9e5a;
+  --tone-flow-bg: rgba(72, 201, 114, 0.14);
+  --tone-building: #b8640f;
+  --tone-building-bg: rgba(255, 138, 50, 0.14);
+  --tone-care: #d80c67;
+  --tone-care-bg: rgba(243, 25, 125, 0.11);
+  --tone-quiet: #8a87a0;
+  --tone-quiet-bg: rgba(120, 117, 141, 0.1);
+  --tone-vault: #6b4fd8;
+  --tone-vault-bg: rgba(135, 103, 237, 0.13);
+
+  /* Glass */
+  --glass: rgba(255, 255, 255, 0.82);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-soft: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-blur: blur(18px) saturate(160%);
+  --track: rgba(38, 36, 61, 0.07);
+
+  /* Gradients */
+  --grad-noble: linear-gradient(135deg, #f3197d 0%, #ff5c72 48%, #8767ed 100%);
+  --grad-pink: linear-gradient(135deg, #f3197d, #ff5c72);
+  --grad-orb: radial-gradient(circle at 32% 28%, #fff3f8 0%, #ff9dc4 18%, #ff5c72 42%, #f3197d 62%, #8767ed 100%);
+
+  /* Depth: soft and wide */
+  --shadow: 0 18px 45px rgba(54, 37, 107, 0.06);
+  --shadow-lift: 0 2px 6px rgba(54, 37, 107, 0.05), 0 26px 60px rgba(54, 37, 107, 0.1);
+  --shadow-pink: 0 10px 28px rgba(243, 25, 125, 0.28);
+
+  /* Shape and rhythm */
+  --radius: 24px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nav-height: 64px;
+
+  color: var(--ink);
+  background: var(--bg);
+}
+
+/* Dark Luxury: `.dark-mode` on <html>. Deep ink with translucent magenta reflections. */
+:root.dark-mode {
+  color-scheme: dark;
+  --bg: #0d0c14;
+  --ink: #f6f3ff;
+  --ink-soft: #d6d1ea;
+  --muted: #a39fbd;
+  --faint: #716c8c;
+  --line: rgba(255, 255, 255, 0.08);
+  --surface: #17151f;
+  --logo-ink: #ffffff;
+  --glass: rgba(24, 21, 36, 0.72);
+  --glass-strong: rgba(28, 25, 42, 0.92);
+  --glass-soft: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 92, 114, 0.14);
+  --track: rgba(255, 255, 255, 0.08);
+  --tone-flow: #6fe09a;
+  --tone-building: #ffb071;
+  --tone-care: #ff7fb4;
+  --tone-quiet: #a39fbd;
+  --tone-vault: #b9a6ff;
+  --shadow: 0 18px 45px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 92, 114, 0.06);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.4), 0 26px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 92, 114, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink); overflow-x: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+a { color: var(--pink); }
+:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }

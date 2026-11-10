@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { seedLifeAreas } from '../data/areas';
-import type { Collection, EntityId, EntityOf, LifeSnapshot, OwnedEntity } from '../domain/models';
+import { createSeed, seedOrder } from '../data/seed';
+import { collections, emptySnapshot, factCollections, type Collection, type EntityId, type EntityOf, type LifeSnapshot, type OwnedEntity } from '../domain/models';
 import type { AuthService, CloudRepository, DataService } from './repository';
 
 /**
@@ -8,7 +8,8 @@ import type { AuthService, CloudRepository, DataService } from './repository';
  *
  * Configuration (Vite env, see `.env.example`):
  *   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
- * Schema and Row Level Security: `supabase/migrations/0001_lote1_base.sql`.
+ * Schema and Row Level Security: `supabase/migrations/` (0001 base, 0002 life system).
+ * Fact tables accept only INSERT and SELECT under RLS: history cannot be rewritten.
  *
  * Every table uses the composite key (user_id, id) and RLS restricts rows to `auth.uid()`.
  * Columns are snake_case; entities are camelCase. Only top-level keys are converted, so
@@ -17,17 +18,25 @@ import type { AuthService, CloudRepository, DataService } from './repository';
 
 /* ── Client ─────────────────────────────────────────────────────────────── */
 
-export interface SupabaseConfig { url: string; anonKey: string; }
+/**
+ * `accessToken` is for scripts (the Claude Code skills): requests run as that person,
+ * so Row Level Security still applies, append-only rules included. The browser omits it
+ * and uses the normal Google session.
+ */
+export interface SupabaseConfig { url: string; anonKey: string; accessToken?: string; }
 
-export function readSupabaseConfig(env: Record<string, string | undefined> = import.meta.env): SupabaseConfig | null {
+export function readSupabaseConfig(env: Record<string, string | undefined>): SupabaseConfig | null {
   const url = env.VITE_SUPABASE_URL?.trim();
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim();
-  return url && anonKey ? { url, anonKey } : null;
+  const accessToken = env.MIVE_ACCESS_TOKEN?.trim() || undefined;
+  return url && anonKey ? { url, anonKey, accessToken } : null;
 }
 
 let client: SupabaseClient | null = null;
 export function getSupabaseClient(config: SupabaseConfig): SupabaseClient {
-  client ??= createClient(config.url, config.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  client ??= config.accessToken
+    ? createClient(config.url, config.anonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { headers: { Authorization: `Bearer ${config.accessToken}` } } })
+    : createClient(config.url, config.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   return client;
 }
 
@@ -36,13 +45,28 @@ export function getSupabaseClient(config: SupabaseConfig): SupabaseClient {
 export const tables: Record<Collection, string> = {
   areas: 'life_areas',
   assessments: 'life_assessments',
+  cisRecords: 'cis_records',
   areaNotes: 'area_notes',
+  identityProfiles: 'identity_profiles',
+  evidences: 'evidences',
   goals: 'goals',
   projects: 'projects',
   tasks: 'tasks',
   events: 'calendar_events',
-  executions: 'execution_records'
+  executions: 'execution_records',
+  habits: 'habits',
+  habitCheckIns: 'habit_check_ins',
+  healthMarkers: 'health_markers',
+  financeEntries: 'finance_entries',
+  vaults: 'finance_vaults',
+  ideas: 'idea_inbox',
+  studySubjects: 'study_subjects',
+  studySessions: 'study_sessions',
+  flashcards: 'flashcards',
+  flashcardReviews: 'flashcard_reviews',
+  playlists: 'playlists'
 };
+const facts = new Set<Collection>(factCollections);
 
 type Row = Record<string, unknown>;
 const toSnake = (key: string) => key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
@@ -61,7 +85,8 @@ export class SupabaseSyncError extends Error {
 
 /* ── Repository per table ───────────────────────────────────────────────── */
 
-export function createSupabaseRepository<T extends OwnedEntity>(supabase: SupabaseClient, table: string): CloudRepository<T> {
+/** `appendOnly` repositories insert and never update, matching the RLS of fact tables. */
+export function createSupabaseRepository<T extends OwnedEntity>(supabase: SupabaseClient, table: string, appendOnly = false): CloudRepository<T> {
   return {
     async list(userId) {
       const { data, error } = await supabase.from(table).select('*').eq('user_id', userId).order('created_at');
@@ -75,7 +100,8 @@ export function createSupabaseRepository<T extends OwnedEntity>(supabase: Supaba
     },
     async save(userId, value) {
       if (value.userId !== userId) throw new SupabaseSyncError('Gravação', table, { message: 'registro pertence a outra pessoa' });
-      const { data, error } = await supabase.from(table).upsert(toRow(value), { onConflict: 'user_id,id' }).select().single();
+      const query = appendOnly ? supabase.from(table).insert(toRow(value)) : supabase.from(table).upsert(toRow(value), { onConflict: 'user_id,id' });
+      const { data, error } = await query.select().single();
       if (error) throw new SupabaseSyncError('Gravação', table, error);
       return fromRow<T>(data);
     },
@@ -88,11 +114,10 @@ export function createSupabaseRepository<T extends OwnedEntity>(supabase: Supaba
 
 /* ── Auth (Google via Supabase) ─────────────────────────────────────────── */
 
-export function createSupabaseAuthService(supabase: SupabaseClient): AuthService {
+export function createSupabaseAuthService(supabase: SupabaseClient, accessToken?: string): AuthService {
   return {
     async currentUser() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
+      const user = accessToken ? (await supabase.auth.getUser(accessToken)).data.user : (await supabase.auth.getSession()).data.session?.user;
       return user ? { id: user.id, email: user.email, name: user.user_metadata?.full_name as string | undefined } : null;
     },
     async signInWithGoogle() {
@@ -112,23 +137,26 @@ type Repositories = { [C in Collection]: CloudRepository<EntityOf<C>> };
 
 export function createSupabaseDataService(config: SupabaseConfig): DataService {
   const supabase = getSupabaseClient(config);
-  const repositories = Object.fromEntries((Object.keys(tables) as Collection[]).map(collection => [collection, createSupabaseRepository(supabase, tables[collection])])) as Repositories;
+  const repositories = Object.fromEntries(collections.map(collection => [collection, createSupabaseRepository(supabase, tables[collection], facts.has(collection))])) as Repositories;
   const repository = <C extends Collection>(collection: C) => repositories[collection] as CloudRepository<EntityOf<C>>;
 
   return {
     mode: 'cloud',
-    auth: createSupabaseAuthService(supabase),
+    auth: createSupabaseAuthService(supabase, config.accessToken),
     async load(userId: EntityId): Promise<LifeSnapshot> {
-      const [areas, assessments, areaNotes, goals, projects, tasks, events, executions] = await Promise.all([
-        repository('areas').list(userId), repository('assessments').list(userId), repository('areaNotes').list(userId), repository('goals').list(userId),
-        repository('projects').list(userId), repository('tasks').list(userId), repository('events').list(userId), repository('executions').list(userId)
-      ]);
-      if (!areas.length) {
-        const seeded = seedLifeAreas(userId);
-        await Promise.all(seeded.map(area => repository('areas').save(userId, area)));
-        areas.push(...seeded);
+      const lists = await Promise.all(collections.map(collection => repository(collection).list(userId)));
+      const snapshot = Object.fromEntries(collections.map((collection, index) => [collection, lists[index]])) as unknown as LifeSnapshot;
+      if (!snapshot.areas.length) {
+        const seed = createSeed(userId);
+        // Order matters: areas and goals first, because other tables reference them.
+        for (const collection of seedOrder) {
+          const items = seed[collection] as EntityOf<typeof collection>[];
+          for (const item of items) await repository(collection).save(userId, item as never);
+          (snapshot[collection] as EntityOf<typeof collection>[]).push(...items);
+        }
       }
-      return { areas: areas.sort((a, b) => a.position - b.position), assessments, areaNotes, goals, projects, tasks, events, executions };
+      snapshot.areas.sort((a, b) => a.position - b.position);
+      return { ...emptySnapshot(), ...snapshot };
     },
     async save(collection, entity) { await repository(collection).save(entity.userId, entity); },
     async remove(collection, userId, id) { await repository(collection).remove(userId, id); }
