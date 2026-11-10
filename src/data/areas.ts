@@ -1,5 +1,7 @@
-export type AreaDiagnostic = 'well' | 'attention' | 'critical' | 'unknown';
-export type LifeAreaSeed = { id: string; name: string; description: string; icon: string; color: string };
+import type { EntityId, LifeArea } from '../domain/models';
+
+/** Catalogue of the 12 life areas. Seeded once per person; afterwards each LifeArea lives in the cloud. */
+export type LifeAreaSeed = Pick<LifeArea, 'id' | 'name' | 'description' | 'icon' | 'color'>;
 
 export const lifeAreas: LifeAreaSeed[] = [
   { id: 'professional', name: 'Profissional', description: 'Trabalho, carreira e impacto que você constrói.', icon: '✦', color: '#f3197d' },
@@ -16,7 +18,8 @@ export const lifeAreas: LifeAreaSeed[] = [
   { id: 'personal-development', name: 'Desenvolvimento Pessoal', description: 'Crescimento intencional e evolução.', icon: '↗', color: '#eb4f64' }
 ];
 
-export type AreaAssessment = { id: string; period: string; createdAt: string; scores: Record<string, number>; };
-export type AreaRecord = { id: string; title: string; description?: string; dueDate?: string; status: 'active' | 'future' | 'done'; priority?: 'high' | 'normal'; };
-export type AreaWorkspace = { note: string; diagnostic: AreaDiagnostic; goals: AreaRecord[]; futureGoals: AreaRecord[]; projects: AreaRecord[]; actions: AreaRecord[]; commitments: AreaRecord[]; };
-export const emptyWorkspace = (): AreaWorkspace => ({ note: '', diagnostic: 'unknown', goals: [], futureGoals: [], projects: [], actions: [], commitments: [] });
+/** Turns the catalogue into owned LifeArea entities for one person. */
+export function seedLifeAreas(userId: EntityId, now = new Date()): LifeArea[] {
+  const stamp = now.toISOString();
+  return lifeAreas.map((area, position) => ({ ...area, position, diagnostic: 'unknown', userId, createdAt: stamp, updatedAt: stamp }));
+}

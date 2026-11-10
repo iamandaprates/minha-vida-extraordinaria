@@ -1,15 +1,29 @@
-import type { CalendarEvent, EntityId, OwnedEntity } from '../domain/models';
+import type { CalendarEvent, Collection, EntityId, EntityOf, LifeSnapshot, OwnedEntity } from '../domain/models';
 
-/** Cloud is the source of truth. Implement with Supabase/Firebase/API in a future batch. */
+/** Cloud is the source of truth. `services/supabase.ts` is the first concrete adapter. */
 export interface CloudRepository<T extends OwnedEntity> {
   list(userId: EntityId): Promise<T[]>;
   get(userId: EntityId, id: EntityId): Promise<T | null>;
   save(userId: EntityId, value: T): Promise<T>;
   remove(userId: EntityId, id: EntityId): Promise<void>;
 }
-export interface AuthService { currentUser(): Promise<{ id: EntityId; email?: string } | null>; signInWithGoogle(): Promise<void>; signOut(): Promise<void>; }
+
+export interface AuthUser { id: EntityId; email?: string; name?: string; }
+export interface AuthService { currentUser(): Promise<AuthUser | null>; signInWithGoogle(): Promise<void>; signOut(): Promise<void>; }
+
+/**
+ * What the app state talks to. One implementation per backend:
+ * `demoDataService` (memory, this session only) and `supabaseDataService` (cloud).
+ */
+export interface DataService {
+  readonly mode: 'demo' | 'cloud';
+  readonly auth: AuthService;
+  /** Loads every collection of one person. Seeds the 12 life areas on first access. */
+  load(userId: EntityId): Promise<LifeSnapshot>;
+  save<C extends Collection>(collection: C, entity: EntityOf<C>): Promise<void>;
+  remove(collection: Collection, userId: EntityId, id: EntityId): Promise<void>;
+}
+
 export interface CalendarProvider { connect(): Promise<void>; listEvents(from: string, to: string): Promise<CalendarEvent[]>; upsertEvent(event: CalendarEvent): Promise<CalendarEvent>; }
 /** Adapter boundary for future bidirectional Google Calendar synchronization. */
 export interface GoogleCalendarSync { pull(from: string, to: string): Promise<CalendarEvent[]>; push(event: CalendarEvent): Promise<CalendarEvent>; }
-/** Area records use entity references so future Goals, Projects and Actions are never duplicated. */
-export interface AreaRelations { goalIds: EntityId[]; projectIds: EntityId[]; taskIds: EntityId[]; eventIds: EntityId[]; }
