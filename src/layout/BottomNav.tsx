@@ -7,6 +7,7 @@ import { Logo } from './Logo';
 import { guides, mobileTabs } from './nav';
 import { RegisterMenu } from './RegisterMenu';
 import { SpotifyMini } from './SpotifyMini';
+import { TimerBadge } from './TimerBadge';
 import { ThemeToggle } from './TopNav';
 
 /** Celular (≤768px): topo compacto + barra inferior de 5 itens + folha "Mais". */
@@ -20,7 +21,7 @@ export function MobileNav({ onEuSou }: { onEuSou: () => void }) {
     <header className="pt-safe fixed inset-x-0 top-0 z-40 px-3 pt-3 md:hidden">
       <div className="glass flex h-14 items-center justify-between rounded-full pl-4 pr-1.5">
         <Link to="/" aria-label="Mive · Início"><Logo compact /></Link>
-        <div className="flex items-center gap-1.5"><SpotifyMini compact /><RegisterMenu compact /></div>
+        <div className="flex items-center gap-1.5"><TimerBadge /><SpotifyMini compact /><RegisterMenu compact /></div>
       </div>
     </header>
     <nav aria-label="Navegação" className="pb-safe fixed inset-x-0 bottom-0 z-40 px-3 md:hidden">

@@ -1,4 +1,5 @@
 import type { BackupFile, MiveData } from '../types';
+import { initialData } from './useMive';
 import { SCHEMA_VERSION } from './storage';
 
 /** Gera e baixa o backup JSON com todos os dados da Mive. */
@@ -22,5 +23,8 @@ export async function readBackup(file: File): Promise<MiveData> {
   if ((backup.schemaVersion ?? 0) > SCHEMA_VERSION) throw new Error('Este backup foi feito por uma versão mais nova da Mive.');
   const data = backup.data as Partial<MiveData>;
   if (!data.settings || !Array.isArray(data.behaviorLog)) throw new Error('O backup está incompleto.');
-  return { profile: data.profile ?? null, settings: { theme: data.settings.theme === 'dark' ? 'dark' : 'light', spotifyUrl: data.settings.spotifyUrl }, behaviorLog: data.behaviorLog };
+  // Backups da Fase 1 não têm projetos nem agenda: completa com o plano inicial.
+  const base = initialData();
+  const list = <K extends keyof MiveData>(key: K) => (Array.isArray(data[key]) ? data[key] : base[key]) as MiveData[K];
+  return { ...base, profile: data.profile ?? null, settings: { theme: data.settings.theme === 'dark' ? 'dark' : 'light', spotifyUrl: data.settings.spotifyUrl }, behaviorLog: data.behaviorLog, projects: list('projects'), goals: list('goals'), tasks: list('tasks'), blocks: list('blocks'), habits: list('habits'), habitChecks: list('habitChecks'), ideas: list('ideas') };
 }

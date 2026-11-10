@@ -7,6 +7,7 @@ import { Logo } from './Logo';
 import { guides } from './nav';
 import { RegisterMenu } from './RegisterMenu';
 import { SpotifyMini } from './SpotifyMini';
+import { TimerBadge } from './TimerBadge';
 
 const iconButton = 'grid h-11 w-11 place-items-center rounded-full border border-line/10 bg-white/60 text-ink transition hover:border-magenta/40 hover:text-magenta dark:bg-white/5';
 
@@ -34,6 +35,7 @@ export function TopNav({ onEuSou }: { onEuSou: () => void }) {
         </NavLink>)}
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        <TimerBadge />
         <RegisterMenu compact />
         <SpotifyMini compact />
         <EuSouButton onClick={onEuSou} compact />

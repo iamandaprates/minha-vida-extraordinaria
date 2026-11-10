@@ -2,6 +2,7 @@ import { Music2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMive } from '../store/useMive';
+import { useUi } from '../store/useUi';
 import { cn } from '../ui';
 
 /** Converte um link do Spotify (playlist, álbum, faixa) na URL de embed. */
@@ -16,10 +17,16 @@ export function spotifyEmbedUrl(input?: string): string | undefined {
  */
 export function SpotifyMini({ compact = false }: { compact?: boolean }) {
   const url = spotifyEmbedUrl(useMive(state => state.settings.spotifyUrl));
-  const [open, setOpen] = useState(false);
+  const open = useUi(state => state.spotifyOpen);
+  const setOpen = useUi(state => state.setSpotifyOpen);
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (open) setLoaded(true); if (!open) return; const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, [open]);
+  useEffect(() => {
+    // Há uma cópia no topo do desktop e outra no do celular: só a visível reage.
+    const visible = () => Boolean(ref.current && ref.current.offsetParent !== null);
+    if (open && visible()) setLoaded(true);
+    if (!open) return;
+    const close = (event: MouseEvent) => { if (visible() && !ref.current?.contains(event.target as Node)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, [open, setOpen]);
   return <div className="relative" ref={ref}>
     <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Mini-player do Spotify" className={cn('flex h-11 items-center gap-2 rounded-full border border-line/10 bg-white/60 px-3 text-sm font-semibold text-ink transition hover:border-magenta/40 dark:bg-white/5', compact && 'w-11 justify-center px-0')}>
       <span className="grid h-7 w-7 place-items-center rounded-full bg-[#1DB954] text-white"><Music2 size={15} strokeWidth={1.75} /></span>

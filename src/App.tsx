@@ -7,6 +7,7 @@ import { Waves } from './layout/Waves';
 import { ConfiguracoesPage } from './modules/configuracoes/ConfiguracoesPage';
 import { EuSouDrawer } from './modules/eusou/EuSouDrawer';
 import { InicioPage } from './modules/inicio/InicioPage';
+import { SessionEnd, useFocusTick } from './modules/inicio/FocusTimer';
 import { Onboarding } from './modules/onboarding/Onboarding';
 import { PlaceholderPage } from './modules/Placeholder';
 import { useMive } from './store/useMive';
@@ -14,6 +15,7 @@ import { useMive } from './store/useMive';
 function Shell() {
   const [euSou, setEuSou] = useState(false);
   const location = useLocation();
+  useFocusTick();
   useEffect(() => { window.scrollTo({ top: 0 }); }, [location.pathname]);
   return <div className="relative min-h-[100dvh]">
     <Waves />
@@ -30,6 +32,7 @@ function Shell() {
       </AnimatePresence>
     </main>
     <EuSouDrawer open={euSou} onClose={() => setEuSou(false)} />
+    <SessionEnd />
   </div>;
 }
 
