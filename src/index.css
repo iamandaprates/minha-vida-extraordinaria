@@ -1,0 +1,49 @@
+@import '@fontsource-variable/sora';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mive · tokens de tema. Os canais RGB alimentam as cores semânticas do Tailwind. */
+@layer base {
+  :root {
+    color-scheme: light;
+    --c-canvas: 255 255 255;
+    --c-ink: 59 10 77;          /* violeta #3B0A4D */
+    --c-ink-soft: 92 58 110;
+    --c-muted: 112 92 128;
+    --c-line: 59 10 77;
+    --glass-bg: rgba(255, 255, 255, 0.82);
+    --glass-border: rgba(255, 255, 255, 0.7);
+    --glass-shadow: 0 16px 40px rgba(59, 10, 77, 0.08);
+    --glass-strong: rgba(255, 255, 255, 0.94);
+    --wave-opacity: 0.9;
+  }
+  /* Dark Luxury */
+  .dark {
+    color-scheme: dark;
+    --c-canvas: 13 12 20;       /* #0D0C14 */
+    --c-ink: 246 238 252;
+    --c-ink-soft: 222 206 240;
+    --c-muted: 186 170 206;
+    --c-line: 207 163 255;
+    --glass-bg: rgba(20, 10, 28, 0.85);
+    --glass-border: rgba(207, 163, 255, 0.22);
+    --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(207, 163, 255, 0.12);
+    --glass-strong: rgba(26, 14, 36, 0.96);
+    --wave-opacity: 0.55;
+  }
+  html { -webkit-tap-highlight-color: transparent; overflow-x: clip; }
+  body { @apply bg-canvas text-ink font-sans antialiased; font-weight: 400; min-width: 320px; overflow-x: hidden; }
+  h1, h2, h3, h4 { @apply font-bold text-ink; letter-spacing: -0.02em; }
+  :focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(243, 25, 145, 0.55); border-radius: 12px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+}
+
+@layer components {
+  .glass { background: var(--glass-bg); backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); }
+  .glass-strong { background: var(--glass-strong); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid var(--glass-border); box-shadow: 0 24px 60px rgba(59, 10, 77, 0.16); }
+  .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted; }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
