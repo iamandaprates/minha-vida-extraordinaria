@@ -1,4 +1,4 @@
-import { cycleOf, emptySnapshot, type CisRecord, type EntityId, type FinanceVault, type Flashcard, type Goal, type Habit, type IdentityProfile, type LifeSnapshot, type OwnedEntity, type Playlist, type Project, type StudySubject, type Task } from '../domain/models';
+import { cycleOf, emptySnapshot, type AestheticRitual, type CisRecord, type EntityId, type FinanceVault, type Flashcard, type Goal, type Habit, type IdentityProfile, type LifeSnapshot, type OwnedEntity, type Playlist, type Project, type StudyDeck, type StudySubject, type Task, type UserProfile } from '../domain/models';
 import { seedLifeAreas } from './areas';
 
 /**
@@ -12,14 +12,15 @@ import { seedLifeAreas } from './areas';
 export const seedIds = {
   goals: { shape: 'goal-shape', cavu: 'goal-cavu', prf: 'goal-prf', finance: 'goal-finance', english: 'goal-english' },
   projects: { cavu: 'project-cavu', prf: 'project-prf' },
-  vaults: { cavu: 'vault-cavu', apartment: 'vault-apartment' }
+  vaults: { cavu: 'vault-cavu', apartment: 'vault-apartment' },
+  decks: { prf: 'deck-prf', english: 'deck-english' }
 } as const;
 
 export function createSeed(userId: EntityId, now = new Date()): LifeSnapshot {
   const stamp = now.toISOString();
   const owned = <T extends OwnedEntity>(id: string, value: Omit<T, keyof OwnedEntity>) => ({ ...value, id, userId, createdAt: stamp, updatedAt: stamp }) as T;
   const cycle = cycleOf(now);
-  const g = seedIds.goals; const p = seedIds.projects; const v = seedIds.vaults;
+  const g = seedIds.goals; const p = seedIds.projects; const v = seedIds.vaults; const d = seedIds.decks;
 
   const goals: Goal[] = [
     owned<Goal>(g.shape, { title: 'Shape dos Sonhos (65 kg)', areaId: 'health', cycle, horizon: 'current', status: 'active', position: 1, pillar: 'health', color: '#48c972', why: 'Marcos: 85 kg → 70 kg → 65 kg', measure: { kind: 'weight', startKg: 85, targetKg: 65, checkpointsKg: [70] } }),
@@ -29,7 +30,7 @@ export function createSeed(userId: EntityId, now = new Date()): LifeSnapshot {
     owned<Goal>(g.english, { title: 'Fluência em Inglês', areaId: 'intellectual', cycle, horizon: 'current', status: 'active', position: 5, pillar: 'language', color: '#ff5c72', why: 'Resgate do curso pago, conversação diária e flashcards' })
   ];
   const projects: Project[] = [
-    owned<Project>(p.cavu, { title: 'Projeto CAVU', areaId: 'professional', goalId: g.cavu, status: 'active', focus: true }),
+    owned<Project>(p.cavu, { title: 'Projeto CAVU', areaId: 'professional', goalId: g.cavu, status: 'active', focus: true, tag: 'CAVU' }),
     owned<Project>(p.prf, { title: 'Projeto PRF', areaId: 'intellectual', goalId: g.prf, status: 'active' })
   ];
   const task = (id: string, value: Omit<Task, keyof OwnedEntity | 'origin' | 'priority'> & Partial<Pick<Task, 'priority'>>) => owned<Task>(id, { origin: 'planned', priority: 'normal', ...value });
@@ -56,15 +57,19 @@ export function createSeed(userId: EntityId, now = new Date()): LifeSnapshot {
     owned<FinanceVault>(v.cavu, { name: 'Cofre Marca CAVU', targetCents: 0, goalId: g.cavu, color: '#f3197d', icon: 'gem' }),
     owned<FinanceVault>(v.apartment, { name: 'Entrada Apartamento Vista Mar', targetCents: 0, goalId: g.finance, color: '#8767ed', icon: 'building-2' })
   ];
+  const studyDecks: StudyDeck[] = [
+    owned<StudyDeck>(d.prf, { name: 'Concurso PRF', color: '#8767ed', position: 0, goalId: g.prf }),
+    owned<StudyDeck>(d.english, { name: 'Inglês', color: '#ff5c72', position: 1, goalId: g.english })
+  ];
   // Subjects usually charged for Agente Administrativo. Adjust to the official edital.
   const prfSubjects = ['Língua Portuguesa', 'Raciocínio Lógico', 'Noções de Informática', 'Direito Constitucional', 'Direito Administrativo', 'Ética no Serviço Público', 'Legislação PRF', 'Arquivologia'];
   const studySubjects: StudySubject[] = [
-    ...prfSubjects.map((name, position) => owned<StudySubject>(`subject-prf-${position + 1}`, { name, track: 'prf', position, goalId: g.prf })),
-    owned<StudySubject>('subject-english-course', { name: 'Curso de inglês', track: 'english', position: 0, goalId: g.english }),
-    owned<StudySubject>('subject-english-talk', { name: 'Conversação', track: 'english', position: 1, goalId: g.english })
+    ...prfSubjects.map((name, position) => owned<StudySubject>(`subject-prf-${position + 1}`, { name, deckId: d.prf, position, goalId: g.prf })),
+    owned<StudySubject>('subject-english-course', { name: 'Curso de inglês', deckId: d.english, position: 0, goalId: g.english }),
+    owned<StudySubject>('subject-english-talk', { name: 'Conversação', deckId: d.english, position: 1, goalId: g.english })
   ];
   const cards: [string, string][] = [['How are you doing?', 'Como você está?'], ['I would like to schedule a meeting.', 'Eu gostaria de agendar uma reunião.'], ['Could you say that again, please?', 'Você pode repetir, por favor?'], ['I am working on my own brand.', 'Estou trabalhando na minha própria marca.'], ['What do you do for a living?', 'Com o que você trabalha?'], ['It is a pleasure to meet you.', 'É um prazer te conhecer.']];
-  const flashcards: Flashcard[] = cards.map(([front, back], index) => owned<Flashcard>(`card-en-${index + 1}`, { deck: 'english', front, back }));
+  const flashcards: Flashcard[] = cards.map(([front, back], index) => owned<Flashcard>(`card-en-${index + 1}`, { deckId: d.english, front, back }));
 
   const identityProfiles: IdentityProfile[] = [owned<IdentityProfile>('identity-1', {
     savedAt: stamp,
@@ -74,8 +79,16 @@ export function createSeed(userId: EntityId, now = new Date()): LifeSnapshot {
       fazer: ['Cumprir a rotina', 'Treinar rumo aos 65 kg', 'Dedicar tempo às marcas'],
       ter: ['Apartamento de luxo com vista mar em Salvador', 'R$ 20 milhões por ano', 'Ecossistema de marcas', 'Capa da Forbes Under 30', 'Família amorosa']
     },
-    references: [{ name: 'Jesus Cristo' }, { name: 'Samuel', relation: 'Pai' }, { name: 'Carlinhos Maia' }]
+    references: [{ name: 'Jesus Cristo' }, { name: 'Samuel', relation: 'Pai' }, { name: 'Carlinhos Maia' }],
+    imageDossier: { palette: [], silhouette: [], archetype: '' }
   })];
+  const profiles: UserProfile[] = [owned<UserProfile>('profile', { displayName: 'Mands' })];
+  // Return intervals are starting points; Mands adjusts each one in Bem-estar & Imagem.
+  const aestheticRituals: AestheticRitual[] = [
+    owned<AestheticRitual>('ritual-hair', { name: 'Cabelo · salão', intervalDays: 60, icon: 'scissors', position: 0 }),
+    owned<AestheticRitual>('ritual-nails', { name: 'Unhas', intervalDays: 15, icon: 'hand', position: 1 }),
+    owned<AestheticRitual>('ritual-derm', { name: 'Dermatologia', intervalDays: 180, icon: 'scan-face', position: 2 })
+  ];
 
   const cisRecords: CisRecord[] = [
     owned<CisRecord>('cis-maas', { instrument: 'maas', title: 'Avaliação inicial MAAS', source: 'Método CIS · pág. 45', scale: 10, scores: [['Espiritual', 7], ['Parentes', 6], ['Conjugal', 5], ['Filhos', null], ['Social', 1], ['Saúde', 5], ['Servir', 1], ['Intelectual', 8], ['Financeiro', 2], ['Profissional', 3], ['Emocional', 4]].map(([label, score]) => ({ label: label as string, score: score as number | null })), priorities: ['Financeiro', 'Profissional', 'Servir', 'Saúde', 'Social'] }),
@@ -90,8 +103,8 @@ export function createSeed(userId: EntityId, now = new Date()): LifeSnapshot {
     owned<Playlist>('playlist-calm', { name: 'Peaceful Piano', mood: 'calm', spotifyUri: 'spotify:playlist:37i9dQZF1DX4sWSpwq3LiO', position: 2 })
   ];
 
-  return { ...emptySnapshot(), areas: seedLifeAreas(userId, now), goals, projects, tasks, habits, vaults, studySubjects, flashcards, identityProfiles, cisRecords, playlists };
+  return { ...emptySnapshot(), profiles, areas: seedLifeAreas(userId, now), goals, projects, tasks, habits, vaults, studyDecks, studySubjects, flashcards, identityProfiles, cisRecords, playlists, aestheticRituals };
 }
 
 /** Collections written on first access, in dependency order (areas and goals first). */
-export const seedOrder = ['areas', 'goals', 'projects', 'tasks', 'habits', 'vaults', 'studySubjects', 'flashcards', 'identityProfiles', 'cisRecords', 'playlists'] as const;
+export const seedOrder = ['profiles', 'areas', 'goals', 'projects', 'tasks', 'habits', 'vaults', 'studyDecks', 'studySubjects', 'flashcards', 'identityProfiles', 'cisRecords', 'playlists', 'aestheticRituals'] as const;

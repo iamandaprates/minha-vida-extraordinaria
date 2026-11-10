@@ -27,17 +27,18 @@ export function FinancePanel() {
   const entries = snapshot.financeEntries.slice().sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
 
   return <>
-    <SectionHeading label="FINANÇAS" title="Seu capital com clareza" action={<div className="page-actions"><Button onClick={() => setEntryKind('expense')}><Icon as={ArrowUpRight} size={16} /> Saída</Button><Button variant="primary" onClick={() => setEntryKind('income')}><Icon as={Plus} size={16} /> Nova Transação</Button></div>} />
+    <SectionHeading label="FINANÇAS" title="Seu capital com clareza" action={<Button variant="primary" onClick={() => setEntryKind('income')}><Icon as={Plus} size={16} /> Nova Transação</Button>} />
     {mode === 'demo' && <p className="note">Modo local: os lançamentos ficam só nesta sessão até o Supabase ser conectado.</p>}
 
-    <section className="stat-grid">
-      <Card tone="noble" className="stat stat-hero"><span className="label">SALDO ATUAL</span><b>{formatBRL(overview.balanceCents)}</b><small>Disponível, fora dos cofres</small></Card>
-      <Card className="stat"><span className="label">RECEBIDO NO MÊS</span><b className="positive">{formatBRL(overview.monthIncomeCents)}</b><small>{overview.monthLabel}</small></Card>
-      <Card className="stat"><span className="label">GASTO NO MÊS</span><b className="negative">{formatBRL(overview.monthExpenseCents)}</b><small>{overview.monthIncomeCents ? `${percent(Math.min(1, overview.monthExpenseCents / overview.monthIncomeCents))}% do que entrou` : 'Sem entradas no mês'}</small></Card>
-      <Card className="stat"><span className="label">GUARDADO NOS COFRES</span><b className="vault">{formatBRL(overview.vaultTotalCents)}</b><small>{overview.monthSavedCents ? `${formatBRL(overview.monthSavedCents)} neste mês` : 'Nenhum aporte neste mês'}</small></Card>
+    <section className="stat-grid stat-grid-4">
+      <Card tone="noble" className="stat stat-hero"><span className="label">SALDO TOTAL</span><b>{formatBRL(overview.balanceCents + overview.vaultTotalCents)}</b><small>{overview.vaultTotalCents ? `${formatBRL(overview.vaultTotalCents)} guardados nos cofres` : 'Soma de entradas menos saídas'}</small></Card>
+      <Card className="stat"><span className="label">ENTRADAS DO MÊS</span><b className="positive">{formatBRL(overview.monthIncomeCents)}</b><small>{overview.monthLabel}</small></Card>
+      <Card className="stat"><span className="label">SAÍDAS DO MÊS</span><b className="negative">{formatBRL(overview.monthExpenseCents)}</b><small>{overview.monthIncomeCents ? `${percent(Math.min(1, overview.monthExpenseCents / overview.monthIncomeCents))}% do que entrou` : 'Sem entradas no mês'}</small></Card>
+      <Card className="stat"><span className="label">SALDO LÍQUIDO DO MÊS</span><b className={overview.monthIncomeCents - overview.monthExpenseCents >= 0 ? 'positive' : 'negative'}>{formatBRL(overview.monthIncomeCents - overview.monthExpenseCents)}</b><small>Entradas menos saídas</small></Card>
     </section>
+    <p className="fine-print">Controle 100% manual: nenhuma conta bancária é conectada. Cada lançamento é seu.</p>
 
-    <SectionHeading label="COFRES DE DESTINO" title="Intocáveis, com destino certo" />
+    <SectionHeading label="DESTINO DOS APORTES" title="Cofres intocáveis" />
     <section className="vault-grid">{snapshot.vaults.map(vault => {
       const { balance, ratio, remaining } = vaultProgress(vault, snapshot);
       const goal = snapshot.goals.find(item => item.id === vault.goalId);
@@ -87,16 +88,19 @@ function LedgerLine({ entry, vaultName }: { entry: FinanceEntry; vaultName?: str
   </div>;
 }
 
-export function EntryDialog({ kind, onClose }: { kind: EntryKind; onClose: () => void }) {
+export function EntryDialog({ kind: initialKind = 'income', onClose }: { kind?: EntryKind; onClose: () => void }) {
   const { addFinanceEntry } = useLife();
+  const [kind, setKind] = useState<EntryKind>(initialKind);
   const options = kind === 'income' ? incomeCategories : expenseCategories;
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(toISODate(new Date()));
   const [category, setCategory] = useState(Object.keys(options)[0]);
   const [description, setDescription] = useState('');
   const cents = parseBRL(amount);
+  const switchKind = (next: EntryKind) => { setKind(next); setCategory(Object.keys(next === 'income' ? incomeCategories : expenseCategories)[0]); };
   const submit = () => { if (!cents || !date) return; addFinanceEntry({ type: kind, amountCents: cents, date, category: category as IncomeCategory | ExpenseCategory, description }); onClose(); };
-  return <Dialog eyebrow={kind === 'income' ? 'NOVA ENTRADA' : 'NOVA SAÍDA'} title={kind === 'income' ? 'Quanto entrou?' : 'Quanto saiu?'} onClose={onClose} onSubmit={submit} submitLabel="Registrar">
+  return <Dialog eyebrow="NOVA TRANSAÇÃO" title={kind === 'income' ? 'Quanto entrou?' : 'Quanto saiu?'} onClose={onClose} onSubmit={submit} submitLabel="Registrar transação">
+    <div className="segmented" role="radiogroup" aria-label="Tipo"><button type="button" role="radio" aria-checked={kind === 'income'} className={kind === 'income' ? 'selected' : ''} onClick={() => switchKind('income')}>Receita</button><button type="button" role="radio" aria-checked={kind === 'expense'} className={kind === 'expense' ? 'selected' : ''} onClick={() => switchKind('expense')}>Despesa</button></div>
     <Field label="Valor em reais" hint={amount && !cents ? 'Use números, por exemplo 1.250,90' : undefined}><input autoFocus inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="R$ 0,00" /></Field>
     <div className="field-row"><Field label="Data"><input type="date" value={date} onChange={event => setDate(event.target.value)} /></Field><Field label="Categoria"><select value={category} onChange={event => setCategory(event.target.value)}>{Object.entries(options).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field></div>
     <Field label="Descrição"><input value={description} onChange={event => setDescription(event.target.value)} placeholder={kind === 'income' ? 'Ex.: Salário de novembro' : 'Ex.: Mercado da semana'} /></Field>

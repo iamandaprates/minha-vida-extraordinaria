@@ -1,5 +1,6 @@
 /* Mive · design tokens
-   Minimalismo magnético: vidro translúcido, rosa protagonista, Inter + serif de alta costura. */
+   Minimalismo magnético: vidro translúcido, rosa protagonista, Inter + serif de alta costura.
+   Tipografia encorpada: títulos 600/700, apoio no mínimo 500. */
 
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -14,11 +15,12 @@
 
   /* Palette */
   --bg: #fbfbff;
-  --ink: #26243d;
-  --ink-soft: #4a4762;
+  --heading: #111118;
+  --ink: #1d1b2c;
+  --ink-soft: #3d3a52;
   --onyx: #0f0e13;
-  --muted: #78758d;
-  --faint: #a4a1b5;
+  --muted: #5d5a72;
+  --faint: #8a87a0;
   --line: rgba(38, 36, 61, 0.08);
   --pink: #f3197d;
   --pink-deep: #d80c67;
@@ -49,6 +51,7 @@
   --glass-soft: rgba(255, 255, 255, 0.6);
   --glass-border: rgba(255, 255, 255, 0.65);
   --glass-blur: blur(18px) saturate(160%);
+  --nav-glass: rgba(255, 255, 255, 0.85);
   --track: rgba(38, 36, 61, 0.07);
 
   /* Gradients */
@@ -77,10 +80,11 @@
 :root.dark-mode {
   color-scheme: dark;
   --bg: #0d0c14;
-  --ink: #f6f3ff;
-  --ink-soft: #d6d1ea;
-  --muted: #a39fbd;
-  --faint: #716c8c;
+  --heading: #f4f4f6;
+  --ink: #ecebf2;
+  --ink-soft: #d0cce0;
+  --muted: #b3afc8;
+  --faint: #8d89a6;
   --line: rgba(255, 255, 255, 0.08);
   --surface: #17151f;
   --logo-ink: #ffffff;
@@ -88,6 +92,7 @@
   --glass-strong: rgba(28, 25, 42, 0.92);
   --glass-soft: rgba(255, 255, 255, 0.04);
   --glass-border: rgba(255, 92, 114, 0.14);
+  --nav-glass: rgba(22, 20, 32, 0.85);
   --track: rgba(255, 255, 255, 0.08);
   --tone-flow: #6fe09a;
   --tone-building: #ffb071;
@@ -99,7 +104,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink); overflow-x: hidden; }
+html, body { margin: 0; min-width: 320px; background: var(--bg); color: var(--ink); overflow-x: hidden; font-weight: 500; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.5; }

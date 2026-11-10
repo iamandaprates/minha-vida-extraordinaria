@@ -34,25 +34,25 @@ export function HealthPanel() {
         <span className="marker-icon"><Icon as={markerIcon[kind]} size={20} /></span>
         <span className="label">{checkupLabels[kind].short.toUpperCase()}</span>
         <h3>{last ? formatDay(last) : 'Sem registro'}</h3>
-        <p>{last ? `Foi ${formatAgo(last, now)}.` : 'Registre a data da última vez para a Mive acompanhar.'}</p>
+        <p>{last ? `Foi ${formatAgo(last, now)} · próximo até ${formatDay(new Date(fromISODate(last).getTime() + CHECKUP_LIMIT_DAYS * 86_400_000).toISOString())}.` : 'Registre a data da última vez para a Mive acompanhar.'}</p>
         {last && <Tag tone={late ? 'care' : 'flow'}>{late ? 'Hora de agendar' : 'Em dia'}</Tag>}
         <Button onClick={() => setCheckup(kind)}>Registrar data</Button>
       </Card>;
     })}</section>
     <p className="fine-print">Quando um cuidado passa de 6 meses, a Central mostra um alerta preventivo automaticamente.</p>
 
-    <SectionHeading label="SHAPE" title={measure ? `${formatKg(measure.startKg)} → ${measure.checkpointsKg.map(formatKg).join(' → ')} → ${formatKg(measure.targetKg)}` : 'Evolução do corpo'} action={<Button variant="primary" onClick={() => setWeightOpen(true)}><Icon as={Scale} size={16} /> Registrar peso</Button>} />
+    <SectionHeading label={measure ? `SHAPE · META ${formatKg(measure.targetKg).toUpperCase()}` : 'SHAPE'} title={measure ? `Marcos: ${formatKg(measure.startKg)} → ${measure.checkpointsKg.map(formatKg).join(' → ')} → ${formatKg(measure.targetKg)}` : 'Evolução do corpo'} action={<Button variant="primary" onClick={() => setWeightOpen(true)}><Icon as={Scale} size={16} /> Registrar peso</Button>} />
     <Card className="shape-card">
       {trend.latest ? <>
         <div className="shape-head">
           <div><span className="label">PESO ATUAL</span><b>{formatKg(trend.latest.valueKg!)}</b><small>{formatDay(trend.latest.date)}</small></div>
           <div><span className="label">DESDE O PRIMEIRO REGISTRO</span><b>{!trend.changeKg ? '·' : `${trend.changeKg > 0 ? '+' : ''}${trend.changeKg.toLocaleString('pt-BR')} kg`}</b><small>{trend.first ? formatDay(trend.first.date) : ''}</small></div>
-          {measure && <div><span className="label">CAMINHO ATÉ {formatKg(measure.targetKg).toUpperCase()}</span><b>{shape ? `${percent(shape.value)}%` : '·'}</b><small>{shape?.detail}</small></div>}
+          {measure && <div><span className="label">META · {formatKg(measure.targetKg).toUpperCase()}</span><b>{shape ? `${percent(shape.value)}%` : '·'}</b><small>{shape?.detail}</small></div>}
         </div>
         {shape && <ProgressBar value={shape.value} color="var(--green)" label="Caminho até a meta de peso" />}
         <WeightChart points={trend.history.map(item => ({ date: item.date, value: item.valueKg! }))} lines={measure ? [...measure.checkpointsKg, measure.targetKg] : []} />
         <ul className="weight-history">{trend.history.slice().reverse().slice(0, 6).map(item => <li key={item.id}><span>{formatDay(item.date)}</span><b>{formatKg(item.valueKg!)}</b>{item.note && <small>{item.note}</small>}</li>)}</ul>
-      </> : <EmptyState icon={Activity}>Seu primeiro registro de peso vira o ponto de partida no caminho até os 65 kg. Sem cobranças: cada número é só informação.</EmptyState>}
+      </> : <EmptyState icon={Activity}>Registre o peso de hoje. Meta: 65 kg. Cada número é só informação.</EmptyState>}
     </Card>
     {checkup && <CheckupDialog kind={checkup} onClose={() => setCheckup(null)} />}
     {weightOpen && <WeightDialog onClose={() => setWeightOpen(false)} />}
@@ -90,7 +90,7 @@ export function WeightDialog({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState('');
   const kg = Number(value.replace(',', '.'));
   const valid = Number.isFinite(kg) && kg > 20 && kg < 300;
-  return <Dialog eyebrow="SHAPE · META 65 KG" title="Registrar peso" onClose={onClose} onSubmit={() => { if (valid) { recordHealthMarker('weight', date, kg, note); onClose(); } }} submitLabel="Registrar">
+  return <Dialog eyebrow="REGISTRO DE PESO · META 65 KG" title="Registrar peso" onClose={onClose} onSubmit={() => { if (valid) { recordHealthMarker('weight', date, kg, note); onClose(); } }} submitLabel="Registrar">
     <div className="field-row"><Field label="Peso em kg"><input autoFocus inputMode="decimal" value={value} onChange={event => setValue(event.target.value)} placeholder="Ex.: 84,6" /></Field><Field label="Data"><input type="date" value={date} max={toISODate(new Date())} onChange={event => setDate(event.target.value)} /></Field></div>
     <Field label="Como você se sente?"><input value={note} onChange={event => setNote(event.target.value)} placeholder="Opcional" /></Field>
     <p className="fine-print">Cada registro é informação, não julgamento.</p>

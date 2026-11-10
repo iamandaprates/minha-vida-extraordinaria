@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type PropsWithChildren } from 'react';
-import { createEntity, cycleLabel, cycleOf, emptySnapshot, toISODate, touch, type AreaDiagnostic, type AreaNote, type CalendarEvent, type Collection, type Draft, type EntityId, type EntityOf, type ExecutionRecord, type Evidence, type FactCollection, type FinanceEntry, type Flashcard, type FlashcardDeck, type FlashcardRating, type Goal, type GoalHorizon, type Habit, type HabitCheckIn, type HealthMarker, type HealthMarkerKind, type Idea, type IdeaCategory, type IdentityProfile, type ISODate, type LifeAssessment, type LifeSnapshot, type PlanCollection, type Playlist, type Project, type StudySession, type StudySubject, type StudyTrack, type Task } from '../domain/models';
-import { completionOf, goalOfTask, isHabitDone } from '../domain/selectors';
+import { createEntity, cycleLabel, cycleOf, emptySnapshot, toISODate, touch, type AestheticRecord, type AestheticRitual, type AreaDiagnostic, type AreaNote, type BehaviorEvent, type CalendarEvent, type Collection, type Draft, type EntityId, type EntityOf, type ExecutionRecord, type Evidence, type FactCollection, type FinanceEntry, type Flashcard, type FlashcardRating, type FocusRole, type Goal, type GoalHorizon, type Habit, type HabitCheckIn, type HealthMarker, type HealthMarkerKind, type Idea, type IdeaCategory, type IdentityProfile, type ISODate, type LifeAssessment, type LifeSnapshot, type PlanCollection, type Playlist, type Project, type StudyDeck, type StudySession, type StudySubject, type Task, type UserProfile } from '../domain/models';
+import { completionOf, goalOfTask, isHabitDone, normalizeTag } from '../domain/selectors';
 import { fetchGoogleEvents } from '../services/googleCalendar';
 import type { AuthUser, DataService } from '../services/repository';
 
@@ -18,7 +18,8 @@ import type { AuthUser, DataService } from '../services/repository';
  */
 
 type Status = 'loading' | 'ready' | 'signed-out' | 'error';
-export interface PlayerState { playlistId?: EntityId; playing: boolean; }
+/** `playRequest` increases when something (e.g. Preciso Começar) asks the player to start. */
+export interface PlayerState { playlistId?: EntityId; playing: boolean; playRequest: number; }
 export interface CalendarSyncState { status: 'idle' | 'syncing' | 'synced' | 'error'; lastSyncAt?: string; imported?: number; message?: string; }
 interface LifeState { status: Status; user?: AuthUser; snapshot: LifeSnapshot; syncIssue?: string; player: PlayerState; calendarSync: CalendarSyncState; }
 
@@ -26,13 +27,22 @@ type Action =
   | { type: 'hydrate'; user: AuthUser; snapshot: LifeSnapshot }
   | { type: 'status'; status: Status; message?: string }
   | { type: 'upsert'; collection: Collection; entity: EntityOf<Collection> }
+  | { type: 'remove'; collection: Collection; id: EntityId }
   | { type: 'syncIssue'; message?: string }
   | { type: 'player'; player: Partial<PlayerState> }
   | { type: 'calendarSync'; state: CalendarSyncState };
 
 function reducer(state: LifeState, action: Action): LifeState {
   switch (action.type) {
-    case 'hydrate': return { ...state, status: 'ready', user: action.user, snapshot: { ...emptySnapshot(), ...action.snapshot }, player: { playing: false, playlistId: action.snapshot.playlists[0]?.id } };
+    case 'hydrate': {
+      const snapshot = { ...emptySnapshot(), ...action.snapshot };
+      snapshot.ideas = snapshot.ideas.map(idea => ({ ...idea, tags: idea.tags ?? [], media: idea.media ?? [] }));
+      return { ...state, status: 'ready', user: action.user, snapshot, player: { playing: false, playRequest: 0, playlistId: snapshot.playlists[0]?.id } };
+    }
+    case 'remove': {
+      const list = state.snapshot[action.collection] as EntityOf<Collection>[];
+      return { ...state, snapshot: { ...state.snapshot, [action.collection]: list.filter(item => item.id !== action.id) } };
+    }
     case 'status': return { ...state, status: action.status, syncIssue: action.message };
     case 'syncIssue': return state.syncIssue === action.message ? state : { ...state, syncIssue: action.message };
     case 'player': return { ...state, player: { ...state.player, ...action.player } };
@@ -53,7 +63,9 @@ export interface NewHabit { title: string; areaId: EntityId; goalId?: EntityId; 
 export type NewFinanceEntry = Omit<Draft<FinanceEntry>, 'description'> & { description?: string };
 export interface NewSession { taskId?: EntityId; goalId?: EntityId; areaId?: EntityId; minutes: number; note?: string; }
 export type NewStudySession = Omit<Draft<StudySession>, 'date'> & { date?: ISODate };
-export type IdentityDraft = Pick<IdentityProfile, 'declarations' | 'serFazerTer' | 'references'>;
+export type IdentityDraft = Pick<IdentityProfile, 'declarations' | 'serFazerTer' | 'references' | 'imageDossier'>;
+export type BehaviorInput = Omit<Draft<BehaviorEvent>, 'occurredAt' | 'date'>;
+export type IdeaChange = Partial<Pick<Idea, 'title' | 'description' | 'tags' | 'media' | 'category' | 'projectId'>>;
 
 export interface LifeActions {
   signIn(): Promise<void>;
@@ -64,8 +76,10 @@ export interface LifeActions {
   toggleTaskCompletion(taskId: EntityId): void;
   /** Appends a postponement fact and moves the planned due date. */
   postponeTask(taskId: EntityId, toDueAt: string): void;
-  /** Pins a task as one of today's 3 non-negotiables (or unpins with `undefined`). */
-  setFocus(taskId: EntityId, day: ISODate | undefined, estimateMinutes?: number): void;
+  /** Pins a task as today's magna or secondary delivery (or unpins with `undefined`). */
+  setFocus(taskId: EntityId, day: ISODate | undefined, role?: FocusRole, estimateMinutes?: number): void;
+  /** Appends a behavioural fact (sessions, pauses, unblock triggers). */
+  logBehavior(input: BehaviorInput): void;
   /** Appends focused time (Modo Execução) and, when asked, the completion. */
   recordSession(input: NewSession, complete?: boolean): void;
   addGoal(input: NewGoal): Goal;
@@ -77,21 +91,31 @@ export interface LifeActions {
   addFinanceEntry(input: NewFinanceEntry): FinanceEntry;
   depositToVault(vaultId: EntityId, amountCents: number, date: ISODate): FinanceEntry | undefined;
   setVaultTarget(vaultId: EntityId, targetCents: number): void;
-  addIdea(title: string, category: IdeaCategory): Idea;
+  addIdea(title: string, category: IdeaCategory, projectId?: EntityId): Idea;
+  updateIdea(ideaId: EntityId, change: IdeaChange): void;
   /** Turns an idea into a planned action. The idea stays, marked as converted. */
   convertIdea(ideaId: EntityId): Task | undefined;
   setIdeaStatus(ideaId: EntityId, status: Idea['status']): void;
-  addStudySubject(name: string, track: StudyTrack, goalId?: EntityId): StudySubject;
+  addStudyDeck(name: string, color?: string): StudyDeck;
+  addStudySubject(name: string, deckId: EntityId): StudySubject;
   addStudySession(input: NewStudySession): StudySession;
-  addFlashcard(deck: FlashcardDeck, front: string, back: string): Flashcard;
+  addFlashcard(deckId: EntityId, front: string, back: string): Flashcard;
   reviewFlashcard(cardId: EntityId, rating: FlashcardRating): void;
   saveIdentity(profile: IdentityDraft): IdentityProfile;
   addEvidence(input: Draft<Evidence>): Evidence;
   setAreaDiagnostic(areaId: EntityId, diagnostic: AreaDiagnostic): void;
   setAreaNote(areaId: EntityId, content: string): void;
   saveAssessment(scores: Record<EntityId, number>): LifeAssessment;
-  addPlaylist(name: string, spotifyUri: string, mood: Playlist['mood']): Playlist;
+  /** Adds a playlist unless the same Spotify URI is already saved. */
+  addPlaylist(name: string, spotifyUri: string, mood: Playlist['mood']): Playlist | undefined;
+  removePlaylist(playlistId: EntityId): void;
   setPlayer(player: Partial<PlayerState>): void;
+  /** Selects the focus playlist and asks the player to start it. */
+  requestFocusMusic(): void;
+  recordAesthetic(ritualId: EntityId, date: ISODate, note?: string): AestheticRecord;
+  updateRitual(ritualId: EntityId, change: Partial<Pick<AestheticRitual, 'name' | 'intervalDays'>>): void;
+  addRitual(name: string, intervalDays: number): AestheticRitual;
+  setProfile(change: Partial<Pick<UserProfile, 'displayName' | 'photoDataUrl'>>): void;
   /** Reads Google Calendar with an OAuth token and upserts events by their Google id. */
   syncGoogleCalendar(token: string, days?: number): Promise<void>;
 }
@@ -102,9 +126,14 @@ const NOTE_SAVE_DELAY = 700;
 const syncMessage = 'Não foi possível sincronizar a última alteração. Ela continua aqui e será enviada na próxima vez.';
 
 export function LifeProvider({ service, children }: PropsWithChildren<{ service: DataService }>) {
-  const [state, dispatch] = useReducer(reducer, { status: 'loading', snapshot: emptySnapshot(), player: { playing: false }, calendarSync: { status: 'idle' } });
+  const [state, dispatch] = useReducer(reducer, { status: 'loading', snapshot: emptySnapshot(), player: { playing: false, playRequest: 0 }, calendarSync: { status: 'idle' } });
   const stateRef = useRef(state);
   stateRef.current = state;
+  /**
+   * Writes go through `apply`: the reducer runs on the ref right away, so an action that
+   * reads the snapshot right after another one (create a task, then pin it) sees the result.
+   */
+  const apply = useCallback((action: Action) => { stateRef.current = reducer(stateRef.current, action); dispatch(action); }, []);
   const noteTimers = useRef(new Map<EntityId, ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
@@ -126,9 +155,14 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
   }, [service]);
 
   const persist = useCallback(<C extends Collection>(collection: C, entity: EntityOf<C>) => {
-    dispatch({ type: 'upsert', collection, entity });
+    apply({ type: 'upsert', collection, entity });
     service.save(collection, entity).then(() => dispatch({ type: 'syncIssue' }), error => { console.error(error); dispatch({ type: 'syncIssue', message: syncMessage }); });
-  }, [service]);
+  }, [service, apply]);
+
+  const discard = useCallback((collection: PlanCollection, userId: EntityId, id: EntityId) => {
+    apply({ type: 'remove', collection, id });
+    service.remove(collection, userId, id).catch(error => { console.error(error); dispatch({ type: 'syncIssue', message: syncMessage }); });
+  }, [service, apply]);
 
   const actions = useMemo<LifeActions>(() => {
     const userId = () => { const id = stateRef.current.user?.id; if (!id) throw new Error('Nenhuma pessoa autenticada.'); return id; };
@@ -141,6 +175,8 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
     const context = (task: Task) => ({ taskId: task.id, areaId: task.areaId, projectId: task.projectId, goalId: goalOfTask(snapshot(), task)?.id });
     const addTask = (input: NewTask) => plan('tasks', { origin: 'planned', priority: 'normal', ...input, title: input.title.trim() });
     const addFinanceEntry = (input: NewFinanceEntry) => fact('financeEntries', { ...input, description: input.description?.trim() || '' });
+    const logBehavior = (input: BehaviorInput) => { const at = new Date(); fact('behaviorEvents', { ...input, occurredAt: at.toISOString(), date: toISODate(at) }); };
+    const defaultTags: Record<IdeaCategory, string[]> = { cavu: ['CAVU'], cafe_baiano: ['CaféBaiano'], geral: [] };
 
     return {
       signIn: () => service.auth.signInWithGoogle(),
@@ -159,10 +195,15 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
         fact('executions', { ...context(task), kind: 'postponement', fromDueAt: task.dueAt, toDueAt, occurredAt: now() });
         persist('tasks', touch(task, { dueAt: toDueAt, focusOn: task.focusOn === toISODate(new Date()) ? undefined : task.focusOn }));
       },
-      setFocus(taskId, day, estimateMinutes) {
+      setFocus(taskId, day, role, estimateMinutes) {
         const task = findTask(taskId);
-        if (task) persist('tasks', touch(task, { focusOn: day, ...(estimateMinutes ? { estimateMinutes } : {}) }));
+        if (!task) return;
+        const today = toISODate(new Date());
+        if (day) logBehavior({ kind: 'focus_planned', taskId, role: role ?? 'secondary' });
+        else if (task.focusOn === today) logBehavior({ kind: 'focus_unplanned', taskId, role: task.focusRole });
+        persist('tasks', touch(task, { focusOn: day, focusRole: day ? role ?? 'secondary' : undefined, ...(estimateMinutes ? { estimateMinutes } : {}) }));
       },
+      logBehavior,
       recordSession(input, complete = false) {
         const task = input.taskId ? findTask(input.taskId) : undefined;
         const base = task ? context(task) : { areaId: input.areaId, goalId: input.goalId };
@@ -183,19 +224,25 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
         return vault ? addFinanceEntry({ type: 'vault_deposit', amountCents, date, category: 'vault', vaultId, description: `Aporte · ${vault.name}` }) : undefined;
       },
       setVaultTarget: (vaultId, targetCents) => edit('vaults', vaultId, { targetCents }),
-      addIdea: (title, category) => plan('ideas', { title: title.trim(), category, status: 'inbox' }),
+      addIdea: (title, category, projectId) => plan('ideas', { title: title.trim(), category, status: 'inbox', projectId, tags: defaultTags[category], media: [] }),
+      updateIdea(ideaId, change) {
+        const tags = change.tags ? [...new Set(change.tags.map(normalizeTag).filter(Boolean))] : undefined;
+        edit('ideas', ideaId, { ...change, ...(tags ? { tags } : {}) });
+      },
       convertIdea(ideaId) {
         const idea = snapshot().ideas.find(item => item.id === ideaId);
         if (!idea || idea.status === 'converted') return undefined;
-        const goal = idea.category === 'cavu' ? snapshot().goals.find(item => item.pillar === 'business') : undefined;
-        const task = addTask({ title: idea.title, origin: 'idea', goalId: goal?.id, areaId: goal?.areaId });
+        const project = snapshot().projects.find(item => item.id === idea.projectId) ?? snapshot().projects.find(item => item.tag && idea.tags.some(tag => tag.toLocaleLowerCase('pt-BR') === item.tag!.toLocaleLowerCase('pt-BR')));
+        const goal = project ? undefined : idea.category === 'cavu' ? snapshot().goals.find(item => item.pillar === 'business') : undefined;
+        const task = addTask({ title: idea.title, origin: 'idea', projectId: project?.id, areaId: project?.areaId ?? goal?.areaId, goalId: goal?.id });
         persist('ideas', touch(idea, { status: 'converted', taskId: task.id }));
         return task;
       },
       setIdeaStatus: (ideaId, status) => edit('ideas', ideaId, { status }),
-      addStudySubject: (name, track, goalId) => plan('studySubjects', { name: name.trim(), track, goalId, position: snapshot().studySubjects.filter(subject => subject.track === track).length }),
+      addStudyDeck: (name, color = '#8767ed') => plan('studyDecks', { name: name.trim(), color, position: snapshot().studyDecks.length }),
+      addStudySubject(name, deckId) { const deck = snapshot().studyDecks.find(item => item.id === deckId); return plan('studySubjects', { name: name.trim(), deckId, goalId: deck?.goalId, position: snapshot().studySubjects.filter(subject => subject.deckId === deckId).length }); },
       addStudySession: input => fact('studySessions', { ...input, date: input.date ?? toISODate(new Date()) }),
-      addFlashcard: (deck, front, back) => plan('flashcards', { deck, front: front.trim(), back: back.trim() }),
+      addFlashcard: (deckId, front, back) => plan('flashcards', { deckId, front: front.trim(), back: back.trim() }),
       reviewFlashcard: (cardId, rating) => { fact('flashcardReviews', { cardId, rating, reviewedAt: now() }); },
       saveIdentity: profile => fact('identityProfiles', { ...profile, savedAt: now() }),
       addEvidence: input => fact('evidences', { ...input, title: input.title.trim() }),
@@ -203,14 +250,35 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
       setAreaNote(areaId, content) {
         const existing = snapshot().areaNotes.find(note => note.areaId === areaId);
         const note: AreaNote = existing ? touch(existing, { content }) : createEntity<AreaNote>(userId(), { areaId, content });
-        dispatch({ type: 'upsert', collection: 'areaNotes', entity: note });
+        apply({ type: 'upsert', collection: 'areaNotes', entity: note });
         const timers = noteTimers.current;
         clearTimeout(timers.get(areaId));
         timers.set(areaId, setTimeout(() => { timers.delete(areaId); const latest = stateRef.current.snapshot.areaNotes.find(item => item.areaId === areaId); if (latest) persist('areaNotes', latest); }, NOTE_SAVE_DELAY));
       },
       saveAssessment(scores) { const cycle = cycleOf(new Date()); return fact('assessments', { cycle, period: cycleLabel(cycle), scores, assessedAt: now() }); },
-      addPlaylist: (name, spotifyUri, mood) => plan('playlists', { name: name.trim(), spotifyUri, mood, position: snapshot().playlists.length }),
-      setPlayer: player => dispatch({ type: 'player', player }),
+      addPlaylist(name, spotifyUri, mood) {
+        if (snapshot().playlists.some(item => item.spotifyUri === spotifyUri)) return undefined;
+        return plan('playlists', { name: name.trim() || 'Minha playlist', spotifyUri, mood, position: snapshot().playlists.length });
+      },
+      removePlaylist(playlistId) {
+        const playlist = snapshot().playlists.find(item => item.id === playlistId);
+        if (!playlist) return;
+        discard('playlists', playlist.userId, playlist.id);
+        if (stateRef.current.player.playlistId === playlistId) apply({ type: 'player', player: { playlistId: snapshot().playlists.find(item => item.id !== playlistId)?.id } });
+      },
+      setPlayer: player => apply({ type: 'player', player }),
+      requestFocusMusic() {
+        const focus = snapshot().playlists.find(item => item.mood === 'focus') ?? snapshot().playlists[0];
+        apply({ type: 'player', player: { playlistId: focus?.id ?? stateRef.current.player.playlistId, playRequest: stateRef.current.player.playRequest + 1 } });
+      },
+      recordAesthetic: (ritualId, date, note) => fact('aestheticRecords', { ritualId, date, note: note?.trim() || undefined }),
+      updateRitual: (ritualId, change) => edit('aestheticRituals', ritualId, change),
+      addRitual: (name, intervalDays) => plan('aestheticRituals', { name: name.trim(), intervalDays, icon: 'sparkles', position: snapshot().aestheticRituals.length }),
+      setProfile(change) {
+        const current = snapshot().profiles[0];
+        if (current) persist('profiles', touch(current, change));
+        else plan('profiles', change);
+      },
       async syncGoogleCalendar(token, days = 21) {
         dispatch({ type: 'calendarSync', state: { status: 'syncing' } });
         try {
@@ -228,7 +296,7 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
         }
       }
     };
-  }, [persist, service]);
+  }, [persist, discard, apply, service]);
 
   const value = useMemo<LifeStore>(() => ({ ...state, mode: service.mode, ...actions }), [state, actions, service.mode]);
   return <LifeContext.Provider value={value}>{children}</LifeContext.Provider>;

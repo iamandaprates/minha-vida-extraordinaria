@@ -1,4 +1,4 @@
-import type { CalendarEvent, CheckupKind, CisInstrument, ExpenseCategory, FinanceCategory, FlashcardDeck, FlashcardRating, IdeaCategory, IncomeCategory, Playlist, Task } from './models';
+import type { CalendarEvent, CheckupKind, CisInstrument, ExpenseCategory, FinanceCategory, FlashcardRating, IdeaCategory, IncomeCategory, Playlist, Task, UnblockTrigger } from './models';
 
 /** Labels in pt-BR, shared by every screen. */
 
@@ -15,8 +15,8 @@ export const checkupLabels: Record<CheckupKind, { title: string; short: string; 
 };
 
 export const ideaCategories: Record<IdeaCategory, { label: string; color: string }> = { cavu: { label: 'CAVU', color: '#f3197d' }, cafe_baiano: { label: 'Café Baiano', color: '#ff8a32' }, geral: { label: 'Geral', color: '#8767ed' } };
-export const deckLabels: Record<FlashcardDeck, string> = { english: 'Inglês', legislacao: 'Legislação' };
-export const ratingLabels: Record<FlashcardRating, string> = { easy: 'Fácil', medium: 'Médio', hard: 'Difícil' };
+export const ratingLabels: Record<FlashcardRating, string> = { again: 'Novamente', hard: 'Difícil', good: 'Bom', easy: 'Fácil' };
+export const triggerLabels: Record<UnblockTrigger, string> = { no_start: 'Não sei por onde começar', too_big: 'A tarefa parece grande demais', perfectionism: 'Medo de errar ou perfeccionismo', distracted: 'Estou distraída / sem foco', low_energy: 'Sem vontade ou energia baixa', avoiding: 'Sei o que fazer, mas estou evitando' };
 export const moodLabels: Record<Playlist['mood'], string> = { focus: 'Foco', workout: 'Treino', calm: 'Calma' };
 export const cisLabels: Record<CisInstrument, { tab: string; title: string }> = { maas: { tab: 'MAAS · pág. 45', title: 'Avaliação inicial MAAS' }, mais: { tab: 'MAIS · pág. 108', title: 'Avaliação MAIS' }, eval55: { tab: 'Autoavaliação 55 pontos', title: 'Autoavaliação de 55 pontos' } };
 

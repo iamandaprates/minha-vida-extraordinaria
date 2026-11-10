@@ -13,15 +13,15 @@ Centro de comando de execução da Mands: transforma planejamento em ação fís
 
 | Guia | O que tem |
 |---|---|
-| Início | Hero editorial, Assistente Mive, prioridades do ciclo, Foco de Hoje (3 inegociáveis), Modo Execução 50:00, agenda de hoje, hábitos, alertas de saúde e tarefas paradas |
+| Início | Central de execução: Regra das 3 Entregas (1 Prioridade Magna + até 2 secundárias, sem vermelho de culpa), botão **Preciso Começar** com 6 gatilhos de desbloqueio, Modo Foco (50 min e micro-sprints de 5 a 15 min, pausas e retomada), agenda, hábitos e alertas preventivos |
 | Agenda | Timeblocking por dia e semana, novo compromisso por área, sincronização do Google Calendar |
-| Áreas da Vida | Radar com percepção (1 a 10) e movimento real, autoavaliação do ciclo, 12 áreas, Finanças (saldo, mês, cofres) e Saúde (exames e peso) |
-| Projetos & Metas | 5 Metas Magnas com progresso real, projetos ativos, hábitos e lista de execução com filtro de tarefas paradas |
-| Estudos | PRF por matéria (tempo, questões, acertos), cronômetro, espaço para PAT e Short List, flashcards com repetição espaçada |
-| Ideias | Captura rápida (CAVU, Café Baiano, Geral), transformar em tarefa ou arquivar |
-| Evolução | Índice Mands S.A. de 30 dias (Execução, Estudos, Negócios, Saúde) e instrumentos do CIS em abas separadas |
+| Áreas da Vida | As 12 áreas oficiais (com Bem-estar & Imagem e Conjugal), Diagnóstico MAAS retrátil, Finanças 100% manuais com cofres, Saúde (exames e peso, meta 65 kg) e rituais de Bem-estar & Imagem |
+| Projetos & Metas | 5 Metas Magnas com progresso real, projetos ativos com ideias vinculadas por tag (#CAVU), hábitos e lista de execução com tarefas paradas |
+| Estudos | Trilhas cadastráveis (Concurso PRF, Inglês, Administração...), matérias, questões e acertos, flashcards Anki com SM-2 (Novamente, Difícil, Bom, Fácil), retenção e espaço para Ciclo PAT e Short List |
+| Ideias | Captura rápida com categoria e projeto, modal com descrição longa, links, imagens e tags livres |
+| Evolução | Taxas de Iniciação, Foco, Retomada e Finalização por período (7, 30, 90 dias ou mês fechado), índice por pilar e instrumentos do CIS em abas separadas |
 
-Na barra superior: **+ Registrar**, mini-player do Spotify (API oficial de embed), **Eu Sou** (declarações MAVI, SER · FAZER · TER, referências e banco de evidências), tema claro ou escuro e perfil. No celular, a barra vira uma barra inferior com gaveta de vidro.
+Na barra superior: **+ Registrar** (Transação, Peso, Demanda Rápida, Check-in de Hábitos), mini-player do Spotify (API oficial de embed, com gestão de playlists), **Eu Sou** (declarações MAVI, Dossiê de Imagem Pessoal, SER · FAZER · TER, referências e banco de evidências), tema claro ou escuro e perfil com foto. No celular, a barra vira uma barra inferior com gaveta de vidro.
 
 ## Estrutura
 
@@ -65,5 +65,5 @@ npm run build
 Copie `.env.example` para `.env.local`.
 
 - Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, a Mive abre em **modo local**: o mesmo estado inicial real, em memória, só nesta sessão.
-- Com o Supabase: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_lote2_expansao.sql`, ative o login Google no painel do Supabase e preencha as chaves. No primeiro acesso a Mive grava o estado inicial.
+- Com o Supabase: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_lote2_expansao.sql` (idempotente: pode rodar de novo numa base que já tinha a versão anterior), ative o login Google no painel do Supabase e preencha as chaves. No primeiro acesso a Mive grava o estado inicial.
 - **Google Calendar:** com `VITE_GOOGLE_CLIENT_ID` (cliente OAuth do tipo Aplicativo da Web) o botão Conectar abre o consentimento do Google. Sem ele, dá para colar um token OAuth com escopo `calendar.readonly`. Tokens nunca são salvos.

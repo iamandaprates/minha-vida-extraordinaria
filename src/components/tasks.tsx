@@ -1,8 +1,8 @@
 import { AlertTriangle, ArrowRight, CalendarClock, Check, Clock, Pin, PinOff } from 'lucide-react';
 import { useState } from 'react';
 import { originLabel, physicalActionIssue } from '../domain/catalog';
-import { toISODate, type LifeSnapshot, type Task } from '../domain/models';
-import { areaOf, completionOf, daysBetween, formatDay, formatDue, formatTime, goalOfTask, isStalled, postponementsOf } from '../domain/selectors';
+import { toISODate, type FocusRole, type LifeSnapshot, type Task } from '../domain/models';
+import { areaOf, completionOf, formatDay, formatDue, formatTime, goalOfTask, isStalled, postponementsOf, todayFocus } from '../domain/selectors';
 import { useLife } from '../state/LifeStore';
 import { Icon } from './icons';
 import { AreaSelect, Dialog, Field } from './ui';
@@ -22,42 +22,44 @@ export function TaskLine({ task, snapshot, compact, showFocus = true }: { task: 
   const pinned = task.focusOn === today;
   const meta = [area?.name ?? 'Sem área', goal?.title ?? originLabel[task.origin], task.isMilestone ? 'Marco' : undefined, task.priority === 'high' ? 'Prioridade' : undefined].filter(Boolean).join(' · ');
   const when = completion ? `Concluída ${formatDay(completion.occurredAt).toLowerCase()} · ${formatTime(completion.occurredAt)}` : formatDue(task);
-  const late = !completion && task.dueAt && daysBetween(new Date(), new Date(task.dueAt)) < 0;
   return <div className={`task-line ${completion ? 'is-done' : ''} ${compact ? 'is-compact' : ''} ${stalled ? 'is-stalled' : ''}`}>
     <button type="button" className="check" aria-label={`${completion ? 'Reabrir' : 'Concluir'} ${task.title}`} aria-pressed={Boolean(completion)} onClick={() => toggleTaskCompletion(task.id)}>{completion && <Icon as={Check} size={14} strokeWidth={2.2} />}</button>
     <div className="task-copy">
       <small><i className="area-dot" style={{ background: area?.color ?? 'var(--muted)' }} />{meta}</small>
       <strong>{task.title}</strong>
-      {!compact && <span className={late ? 'is-late' : ''}>{when}{task.estimateMinutes ? ` · ${task.estimateMinutes} min` : ''}{stalled ? '' : postponed ? ` · adiada ${postponed}x` : ''}</span>}
-      {stalled && <span className="stalled-badge"><Icon as={AlertTriangle} size={13} /> Tarefa parada · adiada {postponed} vezes. Faça agora, quebre ou solte.</span>}
+      {!compact && <span>{when}{task.estimateMinutes ? ` · ${task.estimateMinutes} min` : ''}{stalled ? '' : postponed ? ` · adiada ${postponed}x` : ''}</span>}
+      {stalled && <span className="stalled-badge"><Icon as={AlertTriangle} size={13} /> Tarefa parada · adiada {postponed} vezes. Quebre em um passo menor.</span>}
     </div>
     {!completion && <div className="task-actions">
-      {showFocus && <button type="button" className="icon-chip" onClick={() => pinned ? setFocus(task.id, undefined) : setPinOpen(true)} aria-label={pinned ? 'Tirar do Foco de Hoje' : 'Fixar no Foco de Hoje'} title={pinned ? 'Tirar do Foco de Hoje' : 'Fixar no Foco de Hoje'}><Icon as={pinned ? PinOff : Pin} size={15} /></button>}
+      {showFocus && <button type="button" className="icon-chip" onClick={() => pinned ? setFocus(task.id, undefined) : setPinOpen(true)} aria-label={pinned ? 'Tirar das entregas de hoje' : 'Escolher como entrega de hoje'} title={pinned ? 'Tirar das entregas de hoje' : 'Escolher como entrega de hoje'}><Icon as={pinned ? PinOff : Pin} size={15} /></button>}
       <button type="button" className="icon-chip" onClick={() => postponeTask(task.id, tomorrowAt(task))} aria-label={`Adiar ${task.title} para amanhã`} title="Adiar para amanhã"><Icon as={CalendarClock} size={15} /></button>
     </div>}
     {pinOpen && <FocusPinDialog task={task} onClose={() => setPinOpen(false)} />}
   </div>;
 }
 
-/** Pinning asks for a physical action and an estimate: the anti-dispersion guard. */
-export function FocusPinDialog({ task, onClose }: { task: Task; onClose: () => void }) {
+/** Choosing a delivery asks for a physical action, an estimate and its role: 1 magna + 2 secondary. */
+export function FocusPinDialog({ task, onClose, role: initialRole }: { task: Task; onClose: () => void; role?: FocusRole }) {
   const { snapshot, setFocus, updateTask } = useLife();
+  const focus = todayFocus(snapshot);
+  const magnaFree = !focus.magna || focus.magna.id === task.id;
+  const secondaryFree = focus.openSlots.secondary > 0 || focus.secondary.some(item => item.id === task.id);
+  const [role, setRole] = useState<FocusRole>(initialRole ?? (magnaFree ? 'magna' : 'secondary'));
   const [title, setTitle] = useState(task.title);
   const [minutes, setMinutes] = useState(task.estimateMinutes ? String(task.estimateMinutes) : '');
   const issue = physicalActionIssue(title);
-  const pinnedToday = snapshot.tasks.filter(item => item.focusOn === toISODate(new Date()) && item.id !== task.id).length;
-  const full = pinnedToday >= 3;
+  const available = role === 'magna' ? magnaFree : secondaryFree;
   const value = Number(minutes);
-  const submit = () => { if (issue || full || !(value > 0)) return; if (title.trim() !== task.title) updateTask(task.id, { title: title.trim() }); setFocus(task.id, toISODate(new Date()), value); onClose(); };
-  return <Dialog eyebrow="FOCO DE HOJE" title="Uma ação física, com tempo" onClose={onClose} onSubmit={submit} submitLabel={full ? 'O foco de hoje já tem 3 ações' : 'Fixar no foco →'}>
-    <Field label="Ação" hint={issue ?? 'Clara e física. Dá para saber exatamente quando terminou.'} tone={issue ? 'warn' : undefined}><input autoFocus value={title} onChange={event => setTitle(event.target.value)} /></Field>
+  const submit = () => { if (issue || !available || !(value > 0)) return; if (title.trim() !== task.title) updateTask(task.id, { title: title.trim() }); setFocus(task.id, toISODate(new Date()), role, value); onClose(); };
+  return <Dialog eyebrow="ENTREGAS DE HOJE" title="Uma entrega física, com tempo" onClose={onClose} onSubmit={submit} submitLabel={available ? 'Escolher como entrega →' : role === 'magna' ? 'A Prioridade Magna de hoje já foi escolhida' : 'As 2 secundárias de hoje já foram escolhidas'}>
+    <div className="segmented" role="radiogroup" aria-label="Tipo de entrega">{(['magna', 'secondary'] as const).map(key => <button key={key} type="button" role="radio" aria-checked={role === key} className={role === key ? 'selected' : ''} onClick={() => setRole(key)}>{key === 'magna' ? 'Prioridade Magna' : 'Secundária'}</button>)}</div>
+    <Field label="Entrega" hint={issue ?? 'Clara e física. Dá para saber exatamente quando terminou.'} tone={issue ? 'warn' : undefined}><input autoFocus value={title} onChange={event => setTitle(event.target.value)} /></Field>
     <Field label="Tempo estimado em minutos"><input type="number" min={5} max={480} step={5} value={minutes} onChange={event => setMinutes(event.target.value)} placeholder="Ex.: 50" /></Field>
-    {full && <p className="fine-print is-warn">Três inegociáveis por dia. Conclua ou retire uma antes de fixar outra.</p>}
   </Dialog>;
 }
 
-export function TaskDialog({ onClose, defaults }: { onClose: () => void; defaults?: { areaId?: string; goalId?: string; projectId?: string; date?: string; focus?: boolean } }) {
-  const { snapshot, addTask } = useLife();
+export function TaskDialog({ onClose, defaults }: { onClose: () => void; defaults?: { areaId?: string; goalId?: string; projectId?: string; date?: string; focus?: FocusRole } }) {
+  const { snapshot, addTask, setFocus } = useLife();
   const [title, setTitle] = useState('');
   const [areaId, setAreaId] = useState(defaults?.areaId ?? '');
   const [goalId, setGoalId] = useState(defaults?.goalId ?? '');
@@ -72,7 +74,8 @@ export function TaskDialog({ onClose, defaults }: { onClose: () => void; default
     const project = snapshot.projects.find(item => item.id === projectId);
     const goal = snapshot.goals.find(item => item.id === (goalId || project?.goalId));
     const due = date ? new Date(`${date}T${time || '12:00'}`) : undefined;
-    addTask({ title, areaId: areaId || project?.areaId || goal?.areaId || undefined, goalId: project ? undefined : goalId || undefined, projectId: projectId || undefined, dueAt: due?.toISOString(), dueHasTime: Boolean(date && time), priority: high ? 'high' : 'normal', estimateMinutes: Number(minutes) > 0 ? Number(minutes) : undefined, focusOn: defaults?.focus && Number(minutes) > 0 ? toISODate(new Date()) : undefined });
+    const task = addTask({ title, areaId: areaId || project?.areaId || goal?.areaId || undefined, goalId: project ? undefined : goalId || undefined, projectId: projectId || undefined, dueAt: due?.toISOString(), dueHasTime: Boolean(date && time), priority: high ? 'high' : 'normal', estimateMinutes: Number(minutes) > 0 ? Number(minutes) : undefined });
+    if (defaults?.focus && Number(minutes) > 0) setFocus(task.id, toISODate(new Date()), defaults.focus, Number(minutes));
     onClose();
   };
   return <Dialog eyebrow="PRÓXIMA AÇÃO FÍSICA" title="O que vai acontecer de fato?" onClose={onClose} onSubmit={submit} submitLabel="Adicionar ação →">

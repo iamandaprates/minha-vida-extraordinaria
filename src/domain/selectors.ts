@@ -1,5 +1,5 @@
 import { checkupLabels, formatBRL } from './catalog';
-import { cycleLabel, cycleOf, fromISODate, toISODate, type CalendarEvent, type CheckupKind, type EntityId, type ExecutionRecord, type Flashcard, type FlashcardDeck, type FinanceVault, type Goal, type Habit, type HabitCheckIn, type ISODate, type LifeArea, type LifeAssessment, type LifeSnapshot, type Project, type StudyTrack, type Task } from './models';
+import { cycleLabel, cycleOf, fromISODate, toISODate, type AestheticRitual, type CalendarEvent, type CheckupKind, type EntityId, type ExecutionRecord, type Flashcard, type FinanceVault, type FlashcardRating, type Goal, type Habit, type HabitCheckIn, type Idea, type ISODate, type LifeArea, type LifeAssessment, type LifeSnapshot, type Project, type Task } from './models';
 
 /**
  * Pure reads over the snapshot. Every status, percentage or alert on screen comes from here.
@@ -68,20 +68,37 @@ export function tasksOfGoal(snapshot: LifeSnapshot, goalId: EntityId) {
 }
 export const goalOfTask = (snapshot: LifeSnapshot, task: Task) => snapshot.goals.find(goal => goal.id === (task.goalId ?? snapshot.projects.find(project => project.id === task.projectId)?.goalId));
 
-/* ── Focus of the day ───────────────────────────────────────────────────── */
+/* ── Deliveries of the day (Regra das 3 Entregas) ───────────────────────── */
+
+export const MAX_SECONDARY = 2;
+const activeProjectIds = (snapshot: LifeSnapshot) => new Set(snapshot.projects.filter(project => project.status === 'active').map(project => project.id));
 
 /**
- * The 3 non-negotiables: tasks pinned for today (`focusOn`), plus suggestions to fill the
- * empty slots ranked by deadline, priority and connection to an active goal.
+ * The day shows at most 3 deliveries: 1 magna + up to 2 secondary, pinned for today.
+ * Pins expire with the day: what was not done simply returns to its project (`returned`),
+ * never piling up in red. Suggestions come from active projects first, then goals.
  */
 export function todayFocus(snapshot: LifeSnapshot, now = new Date()) {
   const today = toISODate(now);
+  const done = (task: Task) => isTaskCompleted(task.id, snapshot.executions);
+  const pinned = snapshot.tasks.filter(task => task.focusOn === today);
+  const magna = pinned.find(task => task.focusRole === 'magna') ?? pinned.find(task => !task.focusRole);
+  const secondary = pinned.filter(task => task !== magna).slice(0, MAX_SECONDARY);
+  const deliveries = [magna, ...secondary].filter((task): task is Task => Boolean(task));
+  const projects = activeProjectIds(snapshot);
   const goals = new Set(activeGoals(snapshot, now).map(goal => goal.id));
-  const pinned = snapshot.tasks.filter(task => task.focusOn === today).sort((a, b) => Number(isTaskCompleted(a.id, snapshot.executions)) - Number(isTaskCompleted(b.id, snapshot.executions)) || byRelevance(a, b)).slice(0, FOCUS_SLOTS);
-  const score = (task: Task) => (isDueByToday(task, now) ? 4 : 0) + (task.priority === 'high' ? 2 : 0) + ((goalOfTask(snapshot, task)?.id ?? '') && goals.has(goalOfTask(snapshot, task)!.id) ? 3 : 0) + (task.estimateMinutes ? 1 : 0);
-  const suggestions = openTasks(snapshot).filter(task => task.focusOn !== today).sort((a, b) => score(b) - score(a) || byRelevance(a, b)).slice(0, FOCUS_SLOTS + 2);
-  const pinnedMinutes = pinned.filter(task => !isTaskCompleted(task.id, snapshot.executions)).reduce((sum, task) => sum + (task.estimateMinutes ?? 0), 0);
-  return { pinned, suggestions, openSlots: Math.max(0, FOCUS_SLOTS - pinned.length), pinnedMinutes, done: pinned.filter(task => isTaskCompleted(task.id, snapshot.executions)).length };
+  const open = openTasks(snapshot).filter(task => task.focusOn !== today);
+  const fromProjects = open.filter(task => task.projectId && projects.has(task.projectId));
+  const fromGoals = open.filter(task => !fromProjects.includes(task) && goals.has(goalOfTask(snapshot, task)?.id ?? ''));
+  const score = (task: Task) => (task.priority === 'high' ? 2 : 0) + (task.isMilestone ? 0 : 1) + (task.estimateMinutes ? 1 : 0) + (isDueByToday(task, now) ? 1 : 0);
+  const suggestions = [...fromProjects, ...fromGoals].sort((a, b) => score(b) - score(a) || byRelevance(a, b)).slice(0, 6);
+  const returned = snapshot.tasks.filter(task => task.focusOn && task.focusOn < today && !done(task)).filter(task => task.focusOn === toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)));
+  return {
+    magna, secondary, deliveries, suggestions, returned,
+    openSlots: { magna: magna ? 0 : 1, secondary: MAX_SECONDARY - secondary.length },
+    minutesLeft: deliveries.filter(task => !done(task)).reduce((sum, task) => sum + (task.estimateMinutes ?? 0), 0),
+    done: deliveries.filter(done).length
+  };
 }
 
 /* ── Habits ─────────────────────────────────────────────────────────────── */
@@ -199,8 +216,8 @@ export function subjectStats(snapshot: LifeSnapshot, subjectId: EntityId) {
   const correct = sessions.reduce((sum, session) => sum + (session.correct ?? 0), 0);
   return { sessions: sessions.length, minutes: sessions.reduce((sum, session) => sum + session.minutes, 0), questions, correct, accuracy: questions ? correct / questions : undefined, lastDate: sessions.map(session => session.date).sort().at(-1) };
 }
-export function trackStats(snapshot: LifeSnapshot, track: StudyTrack, now = new Date(), windowDays = INDEX_WINDOW_DAYS) {
-  const subjects = new Set(snapshot.studySubjects.filter(subject => subject.track === track).map(subject => subject.id));
+export function deckStats(snapshot: LifeSnapshot, deckId: EntityId, now = new Date(), windowDays = INDEX_WINDOW_DAYS) {
+  const subjects = new Set(snapshot.studySubjects.filter(subject => subject.deckId === deckId).map(subject => subject.id));
   const from = toISODate(addDays(startOfDay(now), -(windowDays - 1)));
   const sessions = snapshot.studySessions.filter(session => subjects.has(session.subjectId) && session.date >= from);
   const questions = sessions.reduce((sum, session) => sum + (session.questions ?? 0), 0);
@@ -208,18 +225,40 @@ export function trackStats(snapshot: LifeSnapshot, track: StudyTrack, now = new 
   return { minutes: sessions.reduce((sum, session) => sum + session.minutes, 0), days: new Set(sessions.map(session => session.date)).size, questions, accuracy: questions ? correct / questions : undefined };
 }
 
-const intervals: Record<'easy' | 'medium' | 'hard', number> = { easy: 4, medium: 2, hard: 1 };
-/** Simple spaced repetition: the next review date grows with consecutive good ratings. */
-export function cardSchedule(card: Flashcard, snapshot: LifeSnapshot) {
+/**
+ * SM-2 (SuperMemo 2, the algorithm behind Anki), replayed over the full review history.
+ * Answers map to quality: Novamente 1 · Difícil 3 · Bom 4 · Fácil 5.
+ * "Novamente" resets the card and brings it back in 10 minutes, like Anki's learning step.
+ */
+const quality: Record<FlashcardRating, number> = { again: 1, hard: 3, good: 4, easy: 5 };
+export interface CardState { reviews: number; repetitions: number; ease: number; intervalDays: number; dueAt: string; isNew: boolean; lastRating?: FlashcardRating; }
+export function cardSchedule(card: Flashcard, snapshot: LifeSnapshot): CardState {
   const reviews = snapshot.flashcardReviews.filter(review => review.cardId === card.id).sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt));
-  const last = reviews.at(-1);
-  if (!last) return { reviews: 0, dueAt: card.createdAt, isNew: true };
-  let streak = 0;
-  for (let index = reviews.length - 1; index >= 0 && reviews[index].rating !== 'hard'; index -= 1) streak += 1;
-  const days = last.rating === 'hard' ? intervals.hard : intervals[last.rating] * Math.max(1, streak);
-  return { reviews: reviews.length, dueAt: new Date(Date.parse(last.reviewedAt) + days * DAY).toISOString(), isNew: false, lastRating: last.rating };
+  let ease = 2.5; let repetitions = 0; let intervalDays = 0; let dueAt = card.createdAt;
+  for (const review of reviews) {
+    const rating = (review.rating in quality ? review.rating : 'good') as FlashcardRating;
+    const q = quality[rating];
+    if (q < 3) { repetitions = 0; intervalDays = 0; dueAt = new Date(Date.parse(review.reviewedAt) + 10 * 60_000).toISOString(); }
+    else {
+      repetitions += 1;
+      intervalDays = repetitions === 1 ? 1 : repetitions === 2 ? 6 : Math.round(intervalDays * ease);
+      dueAt = new Date(Date.parse(review.reviewedAt) + intervalDays * DAY).toISOString();
+    }
+    ease = Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+  }
+  return { reviews: reviews.length, repetitions, ease, intervalDays, dueAt, isNew: reviews.length === 0, lastRating: reviews.at(-1)?.rating };
 }
-export const dueCards = (snapshot: LifeSnapshot, deck: FlashcardDeck, now = new Date()) => snapshot.flashcards.filter(card => card.deck === deck).filter(card => Date.parse(cardSchedule(card, snapshot).dueAt) <= now.getTime());
+export const dueCards = (snapshot: LifeSnapshot, deckId: EntityId, now = new Date()) => snapshot.flashcards.filter(card => card.deckId === deckId).filter(card => Date.parse(cardSchedule(card, snapshot).dueAt) <= now.getTime());
+/** Retention: share of reviews of already-seen cards answered without "Novamente". */
+export function retentionHistory(snapshot: LifeSnapshot, deckId: EntityId, now = new Date(), days = 14) {
+  const cards = new Set(snapshot.flashcards.filter(card => card.deckId === deckId).map(card => card.id));
+  const reviews = snapshot.flashcardReviews.filter(review => cards.has(review.cardId)).sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt));
+  const seen = new Set<EntityId>(); const graded: { date: ISODate; kept: boolean }[] = [];
+  for (const review of reviews) { if (seen.has(review.cardId)) graded.push({ date: toISODate(new Date(review.reviewedAt)), kept: review.rating !== 'again' }); seen.add(review.cardId); }
+  const series = lastDays(days, now).map(day => { const iso = toISODate(day); const items = graded.filter(item => item.date === iso); return { date: iso, reviews: reviews.filter(review => toISODate(new Date(review.reviewedAt)) === iso).length, retention: items.length ? items.filter(item => item.kept).length / items.length : undefined }; });
+  const recent = graded.filter(item => item.date >= series[0].date);
+  return { series, retention: recent.length ? recent.filter(item => item.kept).length / recent.length : undefined, reviewedToday: series.at(-1)?.reviews ?? 0 };
+}
 
 /* ── Goals ──────────────────────────────────────────────────────────────── */
 
@@ -272,8 +311,10 @@ export const assessmentOfCycle = (assessments: LifeAssessment[], cycle = cycleOf
 /** Done ÷ (done + due and still open), inside the window. Undefined when nothing was due or done. */
 function executionPart(snapshot: LifeSnapshot, tasks: Task[], now: Date, windowDays: number): ProgressPart | undefined {
   const windowStart = addDays(startOfDay(now), -(windowDays - 1)).toISOString();
+  const windowEnd = addDays(startOfDay(now), 1).toISOString();
   const completions = completionIndex(snapshot.executions);
-  const done = tasks.filter(task => (completions.get(task.id)?.occurredAt ?? '') >= windowStart).length;
+  const inWindow = (iso?: string) => Boolean(iso) && iso! >= windowStart && iso! < windowEnd;
+  const done = tasks.filter(task => inWindow(completions.get(task.id)?.occurredAt)).length;
   const pending = tasks.filter(task => !completions.has(task.id) && isDueByToday(task, now)).length;
   return done + pending > 0 ? { key: 'tasks', label: 'Ações', value: done / (done + pending), detail: `${done} feitas · ${pending} no prazo ou atrasadas` } : undefined;
 }
@@ -284,7 +325,7 @@ function studyDaysPart(snapshot: LifeSnapshot, subjectIds: Set<EntityId>, now: D
   const born = startOfDay(new Date(subjects.map(subject => subject.createdAt).sort()[0]));
   const start = born > windowStart ? born : windowStart;
   const days = daysBetween(start, now) + 1;
-  const studied = new Set(snapshot.studySessions.filter(session => subjectIds.has(session.subjectId) && session.date >= toISODate(start)).map(session => session.date)).size;
+  const studied = new Set(snapshot.studySessions.filter(session => subjectIds.has(session.subjectId) && session.date >= toISODate(start) && session.date <= toISODate(now)).map(session => session.date)).size;
   return days > 0 ? { key: 'habits', label: 'Dias de estudo', value: clamp01(studied / days), detail: `${studied} de ${days} dias com sessão registrada` } : undefined;
 }
 
@@ -322,19 +363,19 @@ export interface IndexPillar { key: 'execution' | 'studies' | 'business' | 'heal
  * - Negócios: actions of the business goals (CAVU).
  * - Saúde: habits of the health goals and health actions.
  */
-export function getMandsSAIndex(snapshot: LifeSnapshot, now = new Date()): { pillars: IndexPillar[]; overall?: number; windowDays: number } {
+export function getMandsSAIndex(snapshot: LifeSnapshot, now = new Date(), windowDays = INDEX_WINDOW_DAYS): { pillars: IndexPillar[]; overall?: number; windowDays: number } {
   const goalsOf = (pillar: NonNullable<Goal['pillar']>[]) => snapshot.goals.filter(goal => goal.pillar && pillar.includes(goal.pillar));
   const tasksOfGoals = (goals: Goal[]) => goals.flatMap(goal => tasksOfGoal(snapshot, goal.id));
   const habitsOfGoals = (goals: Goal[]) => snapshot.habits.filter(habit => goals.some(goal => goal.id === habit.goalId));
   const study = goalsOf(['studies', 'language']); const business = goalsOf(['business']); const health = goalsOf(['health']);
   const studySubjects = new Set(snapshot.studySubjects.map(subject => subject.id));
   const pillars: IndexPillar[] = [
-    { key: 'execution', label: 'Execução geral', ...combine([executionPart(snapshot, snapshot.tasks, now, INDEX_WINDOW_DAYS)]) },
-    { key: 'studies', label: 'Estudos', ...combine([studyDaysPart(snapshot, studySubjects, now, INDEX_WINDOW_DAYS), habitsPart(snapshot, habitsOfGoals(study), now, INDEX_WINDOW_DAYS)]) },
-    { key: 'business', label: 'Negócios', ...combine([executionPart(snapshot, tasksOfGoals(business), now, INDEX_WINDOW_DAYS), habitsPart(snapshot, habitsOfGoals(business), now, INDEX_WINDOW_DAYS)]) },
-    { key: 'health', label: 'Saúde', ...combine([habitsPart(snapshot, habitsOfGoals(health), now, INDEX_WINDOW_DAYS), executionPart(snapshot, tasksOfGoals(health), now, INDEX_WINDOW_DAYS)]) }
+    { key: 'execution', label: 'Execução geral', ...combine([executionPart(snapshot, snapshot.tasks, now, windowDays)]) },
+    { key: 'studies', label: 'Estudos', ...combine([studyDaysPart(snapshot, studySubjects, now, windowDays), habitsPart(snapshot, habitsOfGoals(study), now, windowDays)]) },
+    { key: 'business', label: 'Negócios', ...combine([executionPart(snapshot, tasksOfGoals(business), now, windowDays), habitsPart(snapshot, habitsOfGoals(business), now, windowDays)]) },
+    { key: 'health', label: 'Saúde', ...combine([habitsPart(snapshot, habitsOfGoals(health), now, windowDays), executionPart(snapshot, tasksOfGoals(health), now, windowDays)]) }
   ];
-  return { pillars, overall: mean(pillars.map(pillar => pillar.value).filter(defined)), windowDays: INDEX_WINDOW_DAYS };
+  return { pillars, overall: mean(pillars.map(pillar => pillar.value).filter(defined)), windowDays };
 }
 
 /* ── Day ────────────────────────────────────────────────────────────────── */
@@ -351,9 +392,8 @@ const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1
 export function lifeSignals(snapshot: LifeSnapshot, now = new Date()): Signal[] {
   const signals: Signal[] = [];
   for (const alert of getHealthAlerts(snapshot, now)) signals.push({ id: `health-${alert.kind}`, tone: 'alert', area: 'Saúde', title: 'Atenção na Saúde', detail: `${capitalize(checkupLabels[alert.kind].lastPhrase)} há mais de 6 meses. Hora de agendar.`, target: 'areas', areaId: 'health' });
-  for (const { task, postponements } of detectStalledTasks(snapshot)) signals.push({ id: `stalled-${task.id}`, tone: 'alert', area: areaName(snapshot, task.areaId), title: `Tarefa parada · adiada ${postponements} vezes`, detail: `${task.title}. Faça agora, quebre em um passo menor ou solte.`, target: 'metas' });
-  const overdue = openTasks(snapshot).filter(task => isOverdue(task, now));
-  if (overdue.length) signals.push({ id: 'overdue', tone: 'attention', area: areaName(snapshot, overdue[0].areaId), title: overdue.length === 1 ? 'Uma ação passou do prazo' : `${overdue.length} ações passaram do prazo`, detail: overdue[0].title, target: 'metas' });
+  for (const { task, postponements } of detectStalledTasks(snapshot)) signals.push({ id: `stalled-${task.id}`, tone: 'attention', area: areaName(snapshot, task.areaId), title: `Tarefa parada · adiada ${postponements} vezes`, detail: `${task.title}. Use "Preciso Começar" ou quebre em um passo menor.`, target: 'metas' });
+  for (const status of ritualStatuses(snapshot, now).filter(item => item.due)) signals.push({ id: `ritual-${status.ritual.id}`, tone: 'attention', area: 'Bem-estar & Imagem', title: `${status.ritual.name}: hora de agendar`, detail: status.last ? `Último em ${formatDay(status.last, now).toLowerCase()} · retorno a cada ${status.ritual.intervalDays} dias.` : 'Ainda sem data registrada.', target: 'areas', areaId: 'wellbeing' });
   if (!assessmentOfCycle(snapshot.assessments, cycleOf(now))) signals.push({ id: 'assessment', tone: 'attention', area: 'Método CIS', title: 'Autoavaliação do ciclo pendente', detail: `A autoavaliação de ${cycleLabel(cycleOf(now))} ainda não foi registrada.`, target: 'areas' });
   for (const habit of snapshot.habits.filter(item => item.active)) {
     const streak = habitStreak(habit, snapshot.habitCheckIns, now);
@@ -378,7 +418,7 @@ export function formatDay(value: string, now = new Date()) {
 export function formatDue(task: Task, now = new Date()) {
   if (!task.dueAt) return 'Sem prazo';
   const day = formatDay(task.dueAt, now);
-  return `${task.dueHasTime ? `${day} · ${time(task.dueAt)}` : day}${isOverdue(task, now) ? ' · em atraso' : ''}`;
+  return task.dueHasTime ? `${day} · ${time(task.dueAt)}` : day;
 }
 export function formatActivity(iso: string | undefined, now = new Date()) {
   if (!iso) return 'Sem movimento registrado';
@@ -386,3 +426,62 @@ export function formatActivity(iso: string | undefined, now = new Date()) {
   return days <= 0 ? 'Movimento hoje' : days === 1 ? 'Movimento ontem' : `Sem movimento há ${days} dias`;
 }
 export const formatAgo = (date: ISODate, now = new Date()) => { const days = daysBetween(fromISODate(date), now); return days <= 0 ? 'hoje' : days === 1 ? 'ontem' : days < 60 ? `há ${days} dias` : `há ${Math.round(days / 30)} meses`; };
+
+/* ── Periods and behavioural metrics (Evolução) ─────────────────────────── */
+
+export type PeriodKey = '7d' | '30d' | '90d' | 'month';
+export interface Period { key: PeriodKey; label: string; start: Date; end: Date; days: number; }
+/** `month` is the last closed calendar month. `end` is exclusive. */
+export function periodRange(key: PeriodKey, now = new Date()): Period {
+  if (key === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1); const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { key, start, end, days: daysBetween(start, end), label: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(start) };
+  }
+  const days = key === '7d' ? 7 : key === '30d' ? 30 : 90;
+  return { key, days, start: addDays(startOfDay(now), -(days - 1)), end: addDays(startOfDay(now), 1), label: `Últimos ${days} dias` };
+}
+
+export interface BehaviorMetrics { planned: number; started: number; finished: number; sessions: number; plannedMinutes: number; focusedMinutes: number; pauses: number; resumes: number; unblocks: number; initiation?: number; focus?: number; resumption?: number; finish?: number; }
+/**
+ * Real behaviour in a period, from BehaviorEvent facts:
+ * - Iniciação: deliveries planned for a day that got a focus session started.
+ * - Foco: focused minutes ÷ planned block minutes of finished sessions.
+ * - Retomada: resumes ÷ pauses (how often a paused session came back).
+ * - Finalização: planned deliveries that were completed.
+ */
+export function behaviorMetrics(snapshot: LifeSnapshot, period: Period): BehaviorMetrics {
+  const inside = (iso: string) => { const time = Date.parse(iso); return time >= period.start.getTime() && time < period.end.getTime(); };
+  const events = snapshot.behaviorEvents.filter(event => inside(event.occurredAt)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  const plans = new Map<string, { taskId: EntityId; date: ISODate; active: boolean }>();
+  for (const event of events) if (event.taskId && (event.kind === 'focus_planned' || event.kind === 'focus_unplanned')) plans.set(`${event.date}|${event.taskId}`, { taskId: event.taskId, date: event.date, active: event.kind === 'focus_planned' });
+  const planned = [...plans.values()].filter(plan => plan.active);
+  const startedTasks = new Set(events.filter(event => event.kind === 'session_start' && event.taskId).map(event => `${event.date}|${event.taskId}`));
+  const completions = completionIndex(snapshot.executions);
+  const started = planned.filter(plan => startedTasks.has(`${plan.date}|${plan.taskId}`) || (completions.get(plan.taskId)?.occurredAt.slice(0, 10) ?? '') >= plan.date).length;
+  const finished = planned.filter(plan => (completions.get(plan.taskId)?.occurredAt.slice(0, 10) ?? '') >= plan.date).length;
+  const ends = events.filter(event => event.kind === 'session_end');
+  const plannedMinutes = ends.reduce((sum, event) => sum + (event.plannedMinutes ?? 0), 0);
+  const focusedMinutes = ends.reduce((sum, event) => sum + Math.min(event.focusedMinutes ?? 0, event.plannedMinutes ?? Number.POSITIVE_INFINITY), 0);
+  const pauses = events.filter(event => event.kind === 'session_pause').length;
+  const resumes = events.filter(event => event.kind === 'session_resume').length;
+  const ratio = (a: number, b: number) => b > 0 ? clamp01(a / b) : undefined;
+  return { planned: planned.length, started, finished, sessions: ends.length, plannedMinutes, focusedMinutes, pauses, resumes, unblocks: events.filter(event => event.kind === 'unblock').length, initiation: ratio(started, planned.length), focus: ratio(focusedMinutes, plannedMinutes), resumption: ratio(resumes, pauses), finish: ratio(finished, planned.length) };
+}
+
+/* ── Bem-estar & Imagem ─────────────────────────────────────────────────── */
+
+export function ritualStatuses(snapshot: LifeSnapshot, now = new Date()) {
+  return snapshot.aestheticRituals.slice().sort((a, b) => a.position - b.position).map((ritual: AestheticRitual) => {
+    const last = snapshot.aestheticRecords.filter(record => record.ritualId === ritual.id).map(record => record.date).sort().at(-1);
+    const next = last ? toISODate(addDays(fromISODate(last), ritual.intervalDays)) : undefined;
+    const daysLeft = next ? daysBetween(now, fromISODate(next)) : undefined;
+    return { ritual, last, next, daysLeft, due: daysLeft !== undefined && daysLeft <= 0 };
+  });
+}
+
+/* ── Ideas ──────────────────────────────────────────────────────────────── */
+
+export const normalizeTag = (tag: string) => tag.trim().replace(/^#+/, '').replace(/\s+/g, '');
+export const ideaHasTag = (idea: Idea, tag?: string) => Boolean(tag) && idea.tags.some(item => normalizeTag(item).toLocaleLowerCase('pt-BR') === normalizeTag(tag!).toLocaleLowerCase('pt-BR'));
+/** Ideas linked to a project: tagged with the project tag, or explicitly attached to it. */
+export const ideasOfProject = (snapshot: LifeSnapshot, project: Project) => snapshot.ideas.filter(idea => idea.status !== 'archived' && (idea.projectId === project.id || ideaHasTag(idea, project.tag)));
