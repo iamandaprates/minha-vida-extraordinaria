@@ -14,6 +14,7 @@ export const demoDataService: DataService = {
     signOut: async () => undefined
   },
   load: async userId => createDemoSnapshot(userId),
+  // The store already holds the state in memory, so writes are accepted and discarded.
   save: async () => undefined,
   remove: async () => undefined
 };

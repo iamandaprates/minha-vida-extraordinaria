@@ -63,3 +63,20 @@ Também foram incluídos: busca global por registros demonstrativos, captura rá
 ```bash
 cp .env.example .env.local
 ```
+
+## Lote 2: sistema de vida completo
+
+**Regras do domínio**
+- Fonte única: cada ação, meta, hábito, compromisso ou cofre é um registro no `LifeStore` (e no Supabase). Central, Áreas, Agenda, Execução, Hábitos, Metas, Saúde e Finanças leem o mesmo snapshot.
+- Planejamento e realidade: planos (`Goal`, `Project`, `Task`, `CalendarEvent`, `Habit`, `FinanceVault`, `Vision`) podem ser editados. Fatos (`ExecutionRecord`, `HabitCheckIn`, `HealthCheckup`, `BodyMeasurement`, `FinanceEntry`, `LifeAssessment`, `IdentityVersion`) só são acrescentados. Reabrir uma tarefa grava um `reversal`; desmarcar um hábito grava um check-in com `done: false`. No Supabase, as tabelas de fatos aceitam apenas `INSERT` e `SELECT` (RLS).
+- Sem números inventados: todo percentual vem de `src/domain/selectors.ts`. Sem registros, a interface mostra `·` e diz o que falta.
+
+**Módulos**
+- Equilíbrio da Vida (Método CIS): eixo consciência (MAAS semestral de 1 a 10, um snapshot por ciclo) e eixo movimento real (0 a 100%, ações e hábitos dos últimos 14 dias por área).
+- Saúde: últimos exame de sangue, consulta médica e dentista derivados dos registros; acima de 180 dias vira sinal na Central. Evolução do peso rumo à meta de 65 kg.
+- Metas do ciclo: Shape (hábitos + peso), CAVU (projeto + cofre), PRF (bloco de estudos + ações) e Apartamento (cofre + ações). O progresso é a média das partes reais disponíveis.
+- Finanças: entradas e saídas em BRL (centavos), saldo atual, recebido e gasto no mês, cofres intocáveis com meta.
+- Central: Foco do Dia com sessão cronometrada, atalhos, MIVE (resumo do dia a partir dos registros), Equilíbrio, Metas ativas, Agenda e Hábitos de hoje, Sinais.
+- Design system: vidro translúcido, gradiente rosa, magenta e violeta, Inter + Georgia itálico, orbe animado e tema escuro (`.dark-mode`).
+
+**Supabase**: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_life_system.sql`. No primeiro acesso a app cria as 12 áreas, as 4 metas, os hábitos, o projeto CAVU, os cofres (com meta zero, para você definir) e o manifesto de identidade.

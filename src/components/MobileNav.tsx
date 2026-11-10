@@ -1,6 +1,9 @@
-import type { Route } from '../app/navigation';
+import type { Route, RouteParams } from '../app/navigation';
 
-type MobileNavProps = { route: Route; onNavigate: (route: Route) => void; onCapture: () => void };
+type MobileNavProps = { route: Route; onNavigate: (route: Route, params?: RouteParams) => void; onCapture: () => void };
+const items: { route: Route; icon: string; label: string }[] = [{ route: 'central', icon: '✦', label: 'Central' }, { route: 'execution', icon: '✓', label: 'Execução' }, { route: 'habits', icon: '◒', label: 'Hábitos' }, { route: 'finances', icon: '◈', label: 'Finanças' }];
+
 export function MobileNav({ route, onNavigate, onCapture }: MobileNavProps) {
-  return <nav className="mobile-nav" aria-label="Navegação móvel"><button type="button" onClick={() => onNavigate('central')} className={route === 'central' ? 'selected' : ''}>✦<span>Central</span></button><button type="button" onClick={() => onNavigate('agenda')} className={route === 'agenda' ? 'selected' : ''}>□<span>Agenda</span></button><button type="button" onClick={onCapture} className="add" aria-label="Adicionar demanda">+</button><button type="button" onClick={() => onNavigate('execution')} className={route === 'execution' ? 'selected' : ''}>✓<span>Execução</span></button><button type="button" onClick={() => onNavigate('identity')} className={route === 'identity' ? 'selected' : ''}>♡<span>Identidade</span></button></nav>;
+  const button = (item: (typeof items)[number]) => <button key={item.route} type="button" onClick={() => onNavigate(item.route)} className={route === item.route ? 'selected' : ''} aria-current={route === item.route ? 'page' : undefined}>{item.icon}<span>{item.label}</span></button>;
+  return <nav className="mobile-nav" aria-label="Navegação móvel">{items.slice(0, 2).map(button)}<button type="button" onClick={onCapture} className="add" aria-label="Captura rápida">＋</button>{items.slice(2).map(button)}</nav>;
 }
