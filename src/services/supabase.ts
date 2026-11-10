@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { createStarterPlan } from '../data/starter';
+import { createSeed, seedOrder } from '../data/seed';
 import { collections, emptySnapshot, factCollections, type Collection, type EntityId, type EntityOf, type LifeSnapshot, type OwnedEntity } from '../domain/models';
 import type { AuthService, CloudRepository, DataService } from './repository';
 
@@ -28,7 +28,7 @@ export interface SupabaseConfig { url: string; anonKey: string; accessToken?: st
 export function readSupabaseConfig(env: Record<string, string | undefined>): SupabaseConfig | null {
   const url = env.VITE_SUPABASE_URL?.trim();
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim();
-  const accessToken = env.MVE_ACCESS_TOKEN?.trim() || undefined;
+  const accessToken = env.MIVE_ACCESS_TOKEN?.trim() || undefined;
   return url && anonKey ? { url, anonKey, accessToken } : null;
 }
 
@@ -45,8 +45,10 @@ export function getSupabaseClient(config: SupabaseConfig): SupabaseClient {
 export const tables: Record<Collection, string> = {
   areas: 'life_areas',
   assessments: 'life_assessments',
+  cisRecords: 'cis_records',
   areaNotes: 'area_notes',
-  visions: 'visions',
+  identityProfiles: 'identity_profiles',
+  evidences: 'evidences',
   goals: 'goals',
   projects: 'projects',
   tasks: 'tasks',
@@ -54,11 +56,15 @@ export const tables: Record<Collection, string> = {
   executions: 'execution_records',
   habits: 'habits',
   habitCheckIns: 'habit_check_ins',
-  healthCheckups: 'health_checkups',
-  bodyMeasurements: 'body_measurements',
+  healthMarkers: 'health_markers',
   financeEntries: 'finance_entries',
   vaults: 'finance_vaults',
-  identityVersions: 'identity_versions'
+  ideas: 'idea_inbox',
+  studySubjects: 'study_subjects',
+  studySessions: 'study_sessions',
+  flashcards: 'flashcards',
+  flashcardReviews: 'flashcard_reviews',
+  playlists: 'playlists'
 };
 const facts = new Set<Collection>(factCollections);
 
@@ -141,11 +147,11 @@ export function createSupabaseDataService(config: SupabaseConfig): DataService {
       const lists = await Promise.all(collections.map(collection => repository(collection).list(userId)));
       const snapshot = Object.fromEntries(collections.map((collection, index) => [collection, lists[index]])) as unknown as LifeSnapshot;
       if (!snapshot.areas.length) {
-        const starter = createStarterPlan(userId);
+        const seed = createSeed(userId);
         // Order matters: areas and goals first, because other tables reference them.
-        for (const collection of ['areas', 'goals', 'projects', 'habits', 'vaults', 'identityVersions'] as const) {
-          const items = starter[collection] as EntityOf<typeof collection>[];
-          await Promise.all(items.map(item => repository(collection).save(userId, item as never)));
+        for (const collection of seedOrder) {
+          const items = seed[collection] as EntityOf<typeof collection>[];
+          for (const item of items) await repository(collection).save(userId, item as never);
           (snapshot[collection] as EntityOf<typeof collection>[]).push(...items);
         }
       }

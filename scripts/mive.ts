@@ -1,8 +1,8 @@
 /// <reference types="node" />
 /**
- * MVE command line, used by the Claude Code skills in `.claude/skills/mve-*`.
+ * Mive command line, used by the Claude Code skills in `.claude/skills/mive-*`.
  *
- *   npx tsx scripts/mve.ts <command> [--option=value]
+ *   npx tsx scripts/mive.ts <command> [--option=value]
  *
  * Commands
  *   report     [--week=YYYY-MM-DD]                     Time report of the week (Monday to Sunday)
@@ -16,9 +16,9 @@
  *   --json     Print JSON instead of text
  *
  * Data source
- *   Supabase when VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and MVE_ACCESS_TOKEN are set
+ *   Supabase when VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY and MIVE_ACCESS_TOKEN are set
  *   (environment or .env.local). Requests run as that person, so Row Level Security applies.
- *   Otherwise the demonstration data, and writes are only simulated.
+ *   Otherwise local mode: the real initial seed in memory, and writes are only simulated.
  *
  * Every number comes from src/domain (selectors and reports): nothing is computed twice.
  */
@@ -47,18 +47,18 @@ function readEnvFile(): Record<string, string> {
 async function openSource(): Promise<Source> {
   const env = { ...readEnvFile(), ...process.env };
   if (!flags.demo && env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY) {
-    if (!env.MVE_ACCESS_TOKEN) fail('Supabase configurado, mas falta MVE_ACCESS_TOKEN (token de sessão da pessoa). Veja .claude/skills/README.md, ou use --demo.');
+    if (!env.MIVE_ACCESS_TOKEN) fail('Supabase configurado, mas falta MIVE_ACCESS_TOKEN (token de sessão da pessoa). Veja .claude/skills/README.md, ou use --demo.');
     const { createSupabaseDataService, readSupabaseConfig } = await import('../src/services/supabase');
     const service = createSupabaseDataService(readSupabaseConfig(env)!);
     const user = await service.auth.currentUser();
-    if (!user) fail('O MVE_ACCESS_TOKEN não é válido ou expirou. Gere um novo token de sessão.');
+    if (!user) fail('O MIVE_ACCESS_TOKEN não é válido ou expirou. Gere um novo token de sessão.');
     return { mode: 'cloud', userId: user.id, snapshot: await service.load(user.id), service };
   }
   return { mode: 'demo', userId: DEMO_USER_ID, snapshot: createDemoSnapshot() };
 }
 
 async function write<C extends Collection>(source: Source, collection: C, entity: EntityOf<C>) {
-  if (source.mode === 'demo') return console.log('Modo demonstração: nada foi gravado. Registro que seria criado:\n' + JSON.stringify(entity, null, 2));
+  if (source.mode === 'demo') return console.log('Modo local: nada foi gravado. Registro que seria criado:\n' + JSON.stringify(entity, null, 2));
   await source.service!.save(collection, entity);
   console.log(`Gravado em ${collection}: ${entity.id}`);
 }
@@ -74,7 +74,7 @@ const statusLabel: Record<WeeklyStatus, string> = { on_track: 'No ritmo', at_ris
 const reference = () => text('week') ? new Date(`${text('week')}T12:00`) : new Date();
 function fail(message: string): never { console.error(message); process.exit(1); }
 const out = (value: unknown, render: () => string) => console.log(flags.json ? JSON.stringify(value, null, 2) : render());
-const header = (source: Source) => source.mode === 'demo' ? '> Fonte: dados de demonstração (nada é gravado).\n' : '> Fonte: Supabase, como a pessoa autenticada.\n';
+const header = (source: Source) => source.mode === 'demo' ? '> Fonte: modo local, com o estado inicial real (nada é gravado).\n' : '> Fonte: Supabase, como a pessoa autenticada.\n';
 
 /* ── Commands ───────────────────────────────────────────────────────────── */
 
@@ -113,7 +113,7 @@ async function main() {
     return out(proposals, () => [
       header(source), '## Proposta de blocos na agenda', '', proposals.length ? '| # | Quando | Duração | Bloco | Meta | Motivo |\n|---|---|---|---|---|---|' : 'Nenhum bloco proposto: metas sem ações abertas, hábitos em dia ou agenda sem espaço livre.',
       ...proposals.map((item, index) => `| ${index + 1} | ${weekday(item.start)} ${clock(item.start)} | ${hours(item.minutes)} | ${item.title} | ${item.goal.title} | ${item.reason} |`), '',
-      ...proposals.map((item, index) => `${index + 1}. npx tsx scripts/mve.ts add-event --title="${item.title}" --start=${item.start.toISOString().slice(0, 16)}Z --minutes=${item.minutes}${item.areaId ? ` --area=${item.areaId}` : ''}${item.projectId ? ` --project=${item.projectId}` : ''}`)
+      ...proposals.map((item, index) => `${index + 1}. npx tsx scripts/mive.ts add-event --title="${item.title}" --start=${item.start.toISOString().slice(0, 16)}Z --minutes=${item.minutes}${item.areaId ? ` --area=${item.areaId}` : ''}${item.projectId ? ` --project=${item.projectId}` : ''}`)
     ].join('\n'));
   }
 

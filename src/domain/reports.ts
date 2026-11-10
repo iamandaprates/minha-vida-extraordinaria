@@ -76,8 +76,10 @@ export interface WeeklyGoal { goal: Goal; progress: Progress; weekTasks: Task[];
 /** Cycle goals seen through this week: what is planned, what happened, what is at risk. */
 export function weeklyGoals(snapshot: LifeSnapshot, now = new Date()): { week: Week; goals: WeeklyGoal[] } {
   const week = weekOf(now);
-  // Only days that are already over count against habits: today is still open.
-  const elapsedDays = Math.min(7, Math.floor((now.getTime() - week.start.getTime()) / 86_400_000));
+  // Only days that are already over count against habits (today is still open), and never
+  // the days before the habit existed.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const pastDays = (createdAt: string) => { const born = new Date(createdAt); const from = Math.max(week.start.getTime(), new Date(born.getFullYear(), born.getMonth(), born.getDate()).getTime()); return Math.max(0, Math.min(7, Math.round((today - from) / 86_400_000))); };
   const goals = activeGoals(snapshot, now).map(goal => {
     const tasks = tasksOfGoal(snapshot, goal.id);
     const weekTasks = tasks.filter(task => task.dueAt && inWeek(task.dueAt, week));
@@ -88,7 +90,7 @@ export function weeklyGoals(snapshot: LifeSnapshot, now = new Date()): { week: W
       return { habit, done, expected };
     });
     const open = tasks.filter(task => !isTaskCompleted(task.id, snapshot.executions)).sort(byRelevance);
-    const expectedSoFar = habits.reduce((sum, item) => sum + Math.round((item.expected * elapsedDays) / 7), 0);
+    const expectedSoFar = habits.reduce((sum, item) => sum + Math.round((item.expected * pastDays(item.habit.createdAt)) / 7), 0);
     const habitsSoFar = habits.reduce((sum, item) => sum + item.done, 0);
     const lateTasks = weekTasks.filter(task => !isTaskCompleted(task.id, snapshot.executions) && isOverdue(task, now)).length;
     const status: WeeklyStatus = !weekTasks.length && !habits.length ? 'no_plan'

@@ -1,42 +1,52 @@
-# Minha Vida Extraordinária — Batch 0
+# Mive
 
-Fundação do sistema pessoal que conecta identidade, visão, planejamento, execução e reflexão.
+Centro de comando de execução da Mands: transforma planejamento em ação física e fecha ciclos.
 
-## Decisões técnicas
+## Princípios
 
-- **React + TypeScript + Vite:** interface modular, rápida e preparada para crescimento.
-- **Design system por tokens:** cores, sombras, raios e tipografia centralizados em `src/styles/tokens.css`; componentes fundamentais em `src/components`.
-- **Cloud-first por contrato:** `src/services/repository.ts` define repositórios, autenticação e calendário como interfaces assíncronas. Nenhum dado de vida é salvo no navegador como fonte de verdade.
-- **Integrações futuras:** o contrato `GoogleCalendarSync` preserva IDs externos, recorrência e operações de pull/push para uma sincronização bidirecional posterior. `AuthService` prevê login Google sem implementar autenticação improvisada.
-- **PWA:** o manifest e metadados de instalação já estão incluídos. O service worker e a estratégia offline serão conectados quando a camada de autenticação/dados for definida, para não cachear dados pessoais indevidamente neste batch.
+- **Fonte única de verdade.** Cada ação, meta, hábito, ideia ou compromisso é um único registro no `LifeStore` (e no Supabase). As 7 guias leem o mesmo estado.
+- **Planejar não é executar.** Planos são editáveis. Fatos só são acrescentados e nunca apagados: conclusão, reabertura (`reversal`), adiamento (`postponement`), sessão de foco, check-in de hábito, exame, peso, transação, sessão de estudo, revisão de flashcard, autoavaliação, versão de identidade e evidência. No Supabase, as tabelas de fatos aceitam apenas `SELECT` e `INSERT`.
+- **Sem dados fictícios.** O estado inicial traz só os dados reais da Mands (Método CIS, Eu Sou, 5 Metas Magnas e próximas ações). Todo percentual vem de `src/domain/selectors.ts`; sem registros, a interface mostra `·`.
+- **Trava antidispersão.** Uma tarefa adiada três vezes ou mais vira **tarefa parada** e aparece em destaque. O Foco de Hoje aceita no máximo 3 ações, cada uma física e com tempo estimado.
+
+## As 7 guias
+
+| Guia | O que tem |
+|---|---|
+| Início | Hero editorial, Assistente Mive, prioridades do ciclo, Foco de Hoje (3 inegociáveis), Modo Execução 50:00, agenda de hoje, hábitos, alertas de saúde e tarefas paradas |
+| Agenda | Timeblocking por dia e semana, novo compromisso por área, sincronização do Google Calendar |
+| Áreas da Vida | Radar com percepção (1 a 10) e movimento real, autoavaliação do ciclo, 12 áreas, Finanças (saldo, mês, cofres) e Saúde (exames e peso) |
+| Projetos & Metas | 5 Metas Magnas com progresso real, projetos ativos, hábitos e lista de execução com filtro de tarefas paradas |
+| Estudos | PRF por matéria (tempo, questões, acertos), cronômetro, espaço para PAT e Short List, flashcards com repetição espaçada |
+| Ideias | Captura rápida (CAVU, Café Baiano, Geral), transformar em tarefa ou arquivar |
+| Evolução | Índice Mands S.A. de 30 dias (Execução, Estudos, Negócios, Saúde) e instrumentos do CIS em abas separadas |
+
+Na barra superior: **+ Registrar**, mini-player do Spotify (API oficial de embed), **Eu Sou** (declarações MAVI, SER · FAZER · TER, referências e banco de evidências), tema claro ou escuro e perfil. No celular, a barra vira uma barra inferior com gaveta de vidro.
 
 ## Estrutura
 
 ```text
 src/
-  app/          shell e navegação
-  components/   componentes reutilizáveis
-  domain/       entidades e relações do domínio
-  services/     contratos cloud, autenticação e Google Calendar
-  styles/       tokens e estilos responsivos
+  app/          App e navegação das 7 guias
+  pages/        uma página por guia
+  components/   TopNav, Logo, FocusTimer, SpotifyMini, IdentityDrawer, painéis e primitivos
+  domain/       models.ts, selectors.ts, reports.ts, catalog.ts
+  data/         seed.ts (estado inicial real), areas.ts, demo.ts (modo local)
+  services/     Supabase, modo local, Google Calendar
+  state/        LifeStore
+  styles/       tokens.css e app.css (glassmorphism e Dark Luxury)
+supabase/migrations/  0001_lote1_base.sql, 0002_lote2_expansao.sql
+scripts/mive.ts       linha de comando usada pelas skills do Claude Code
+.claude/skills/       mive-weekly-goals, mive-time-report, mive-calendar-optimizer
 ```
 
-## Modelo de dados
-
-`models.ts` separa Área, Visão, Meta, Projeto, Tarefa, Demanda, Hábito, Check-in, Compromisso, Registro de Execução, Estudo, Finança, Biblioteca, Nota, Ideia, Decisão, Revisão e Identidade. Todas as entidades são de propriedade do usuário e possuem metadados de criação/atualização. Planejamento (`Task`) e realidade (`ExecutionRecord`) são entidades distintas: uma tarefa nunca guarda "concluída"; a conclusão é um registro de execução do tipo `completion`. Demandas são tarefas com `origin: 'captured'`, na mesma lista de execução.
-
-## Preparado para próximos batches
-
-- Persistência cloud e sincronização em tempo real por meio de adaptadores concretos.
-- Login Google e isolamento de dados por `userId`.
-- Importação/sincronização bidirecional do Google Calendar, incluindo IDs externos e recorrência.
-- Central baseada em sinais registrados; os cartões atuais são direção visual, não cálculos ou pontuações inventadas.
-- Avaliações periódicas via `Review` com ciclo `maas`.
-
-## Executar localmente
+## Executar
 
 ```bash
 npm install
+```
+
+```bash
 npm run dev
 ```
 
@@ -44,39 +54,16 @@ Verificações:
 
 ```bash
 npm run check
+```
+
+```bash
 npm run build
 ```
 
-## Batch 1 — Minha Vida
+## Configuração
 
-Central, Identidade e Visão são experiências navegáveis e conectadas a um único estado de demonstração. A Central é uma camada de leitura: tarefas e demandas são criadas e concluídas em **Execução**, e a mudança é refletida imediatamente na Central. Os dados de demonstração ficam isolados em `src/data/demo.ts` e a interface informa explicitamente quando uma edição é apenas desta sessão; uma implementação cloud substituirá esse adaptador no próximo batch.
+Copie `.env.example` para `.env.local`.
 
-Também foram incluídos: busca global por registros demonstrativos, captura rápida de demanda, agenda com preparação visual para Google Calendar, sinais derivados da relevância dos registros de demonstração, manifesto de Identidade editável e versão histórica recolhível, além do mapa macro de Visão.
-
-## Lote 1: estado único e base Supabase
-
-- **Estado central (`src/state/LifeStore.tsx`):** um único `LifeSnapshot` alimenta Central, Execução, Agenda e Áreas da Vida. O antigo estado isolado `workspace` das Áreas deixou de existir: objetivos são `Goal`, projetos são `Project`, ações são `Task`, compromissos são `CalendarEvent`, notas são `AreaNote` e a percepção é `LifeArea.diagnostic`. Uma ação criada em Saúde é a mesma tarefa que aparece em Execução e na Central.
-- **Planejamento e realidade:** concluir uma tarefa cria um `ExecutionRecord` (`kind: 'completion'`); reabrir remove esse registro. Progresso de projeto, última atividade e contagens de área são derivados em `src/domain/selectors.ts`, nunca armazenados.
-- **Serviço de dados:** `src/services/supabase.ts` (cliente, mapeamento de tabelas, conversão camelCase/snake_case, repositório por tabela, login Google). `src/services/dataService.ts` escolhe Supabase quando `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` existem e, sem elas, o modo demonstração em memória.
-- **Esquema:** `supabase/migrations/0001_lote1_base.sql` cria as tabelas com chave `(user_id, id)` e Row Level Security por `auth.uid()`. As 12 áreas são semeadas no primeiro acesso.
-
-```bash
-cp .env.example .env.local
-```
-
-## Lote 2: sistema de vida completo
-
-**Regras do domínio**
-- Fonte única: cada ação, meta, hábito, compromisso ou cofre é um registro no `LifeStore` (e no Supabase). Central, Áreas, Agenda, Execução, Hábitos, Metas, Saúde e Finanças leem o mesmo snapshot.
-- Planejamento e realidade: planos (`Goal`, `Project`, `Task`, `CalendarEvent`, `Habit`, `FinanceVault`, `Vision`) podem ser editados. Fatos (`ExecutionRecord`, `HabitCheckIn`, `HealthCheckup`, `BodyMeasurement`, `FinanceEntry`, `LifeAssessment`, `IdentityVersion`) só são acrescentados. Reabrir uma tarefa grava um `reversal`; desmarcar um hábito grava um check-in com `done: false`. No Supabase, as tabelas de fatos aceitam apenas `INSERT` e `SELECT` (RLS).
-- Sem números inventados: todo percentual vem de `src/domain/selectors.ts`. Sem registros, a interface mostra `·` e diz o que falta.
-
-**Módulos**
-- Equilíbrio da Vida (Método CIS): eixo consciência (MAAS semestral de 1 a 10, um snapshot por ciclo) e eixo movimento real (0 a 100%, ações e hábitos dos últimos 14 dias por área).
-- Saúde: últimos exame de sangue, consulta médica e dentista derivados dos registros; acima de 180 dias vira sinal na Central. Evolução do peso rumo à meta de 65 kg.
-- Metas do ciclo: Shape (hábitos + peso), CAVU (projeto + cofre), PRF (bloco de estudos + ações) e Apartamento (cofre + ações). O progresso é a média das partes reais disponíveis.
-- Finanças: entradas e saídas em BRL (centavos), saldo atual, recebido e gasto no mês, cofres intocáveis com meta.
-- Central: Foco do Dia com sessão cronometrada, atalhos, MIVE (resumo do dia a partir dos registros), Equilíbrio, Metas ativas, Agenda e Hábitos de hoje, Sinais.
-- Design system: vidro translúcido, gradiente rosa, magenta e violeta, Inter + Georgia itálico, orbe animado e tema escuro (`.dark-mode`).
-
-**Supabase**: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_life_system.sql`. No primeiro acesso a app cria as 12 áreas, as 4 metas, os hábitos, o projeto CAVU, os cofres (com meta zero, para você definir) e o manifesto de identidade.
+- Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, a Mive abre em **modo local**: o mesmo estado inicial real, em memória, só nesta sessão.
+- Com o Supabase: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_lote2_expansao.sql`, ative o login Google no painel do Supabase e preencha as chaves. No primeiro acesso a Mive grava o estado inicial.
+- **Google Calendar:** com `VITE_GOOGLE_CLIENT_ID` (cliente OAuth do tipo Aplicativo da Web) o botão Conectar abre o consentimento do Google. Sem ele, dá para colar um token OAuth com escopo `calendar.readonly`. Tokens nunca são salvos.

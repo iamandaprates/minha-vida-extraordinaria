@@ -1,77 +1,99 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type PropsWithChildren } from 'react';
-import { createEntity, cycleLabel, cycleOf, emptySnapshot, toISODate, touch, type AreaDiagnostic, type AreaNote, type BodyMeasurement, type CalendarEvent, type CheckupKind, type Collection, type Draft, type EntityId, type EntityOf, type ExecutionRecord, type FactCollection, type FinanceEntry, type Goal, type GoalHorizon, type Habit, type HabitCheckIn, type HealthCheckup, type IdentityManifest, type IdentityVersion, type ISODate, type LifeAssessment, type LifeSnapshot, type PlanCollection, type Project, type Task, type Vision } from '../domain/models';
-import { completionOf, isHabitDone } from '../domain/selectors';
+import { createEntity, cycleLabel, cycleOf, emptySnapshot, toISODate, touch, type AreaDiagnostic, type AreaNote, type CalendarEvent, type Collection, type Draft, type EntityId, type EntityOf, type ExecutionRecord, type Evidence, type FactCollection, type FinanceEntry, type Flashcard, type FlashcardDeck, type FlashcardRating, type Goal, type GoalHorizon, type Habit, type HabitCheckIn, type HealthMarker, type HealthMarkerKind, type Idea, type IdeaCategory, type IdentityProfile, type ISODate, type LifeAssessment, type LifeSnapshot, type PlanCollection, type Playlist, type Project, type StudySession, type StudySubject, type StudyTrack, type Task } from '../domain/models';
+import { completionOf, goalOfTask, isHabitDone } from '../domain/selectors';
+import { fetchGoogleEvents } from '../services/googleCalendar';
 import type { AuthUser, DataService } from '../services/repository';
 
 /**
- * Single source of state. Central, Áreas, Agenda, Execução, Hábitos, Metas, Saúde and Finanças
- * read the same snapshot, so one record is shown everywhere and changes everywhere at once.
+ * Single source of state. Every guide of Mive reads the same snapshot, so one record is
+ * shown everywhere and changes everywhere at once.
  *
- * Two kinds of writes:
- * - `plan(...)`  creates or edits planning records (upsert).
- * - `fact(...)`  appends a reality record. Facts are never edited or removed; corrections are
- *   new facts (a `reversal`, a check-in with `done: false`).
+ * - `plan(...)` creates or edits planning records (upsert).
+ * - `fact(...)` appends reality. Facts are never edited or removed; corrections are new
+ *   facts (a `reversal`, a `postponement`, a check-in with `done: false`).
  * Writes are optimistic: the snapshot updates at once and the data service persists after.
+ *
+ * Runtime state that is not data (music player, calendar sync status) also lives here,
+ * so the top bar and the pages agree, but it is never persisted.
  */
 
 type Status = 'loading' | 'ready' | 'signed-out' | 'error';
-interface LifeState { status: Status; user?: AuthUser; snapshot: LifeSnapshot; syncIssue?: string; }
+export interface PlayerState { playlistId?: EntityId; playing: boolean; }
+export interface CalendarSyncState { status: 'idle' | 'syncing' | 'synced' | 'error'; lastSyncAt?: string; imported?: number; message?: string; }
+interface LifeState { status: Status; user?: AuthUser; snapshot: LifeSnapshot; syncIssue?: string; player: PlayerState; calendarSync: CalendarSyncState; }
 
 type Action =
   | { type: 'hydrate'; user: AuthUser; snapshot: LifeSnapshot }
   | { type: 'status'; status: Status; message?: string }
   | { type: 'upsert'; collection: Collection; entity: EntityOf<Collection> }
-  | { type: 'remove'; collection: Collection; id: EntityId }
-  | { type: 'syncIssue'; message?: string };
+  | { type: 'syncIssue'; message?: string }
+  | { type: 'player'; player: Partial<PlayerState> }
+  | { type: 'calendarSync'; state: CalendarSyncState };
 
 function reducer(state: LifeState, action: Action): LifeState {
   switch (action.type) {
-    case 'hydrate': return { status: 'ready', user: action.user, snapshot: { ...emptySnapshot(), ...action.snapshot } };
+    case 'hydrate': return { ...state, status: 'ready', user: action.user, snapshot: { ...emptySnapshot(), ...action.snapshot }, player: { playing: false, playlistId: action.snapshot.playlists[0]?.id } };
     case 'status': return { ...state, status: action.status, syncIssue: action.message };
     case 'syncIssue': return state.syncIssue === action.message ? state : { ...state, syncIssue: action.message };
+    case 'player': return { ...state, player: { ...state.player, ...action.player } };
+    case 'calendarSync': return { ...state, calendarSync: action.state };
     case 'upsert': {
       const list = state.snapshot[action.collection] as EntityOf<Collection>[];
       const exists = list.some(item => item.id === action.entity.id);
       const next = exists ? list.map(item => item.id === action.entity.id ? action.entity : item) : [...list, action.entity];
       return { ...state, snapshot: { ...state.snapshot, [action.collection]: next } };
     }
-    case 'remove': {
-      const list = state.snapshot[action.collection] as EntityOf<Collection>[];
-      return { ...state, snapshot: { ...state.snapshot, [action.collection]: list.filter(item => item.id !== action.id) } };
-    }
   }
 }
 
-export interface NewTask { title: string; areaId?: EntityId; projectId?: EntityId; goalId?: EntityId; dueAt?: string; dueHasTime?: boolean; priority?: Task['priority']; origin?: Task['origin']; estimateMinutes?: number; }
+export interface NewTask { title: string; areaId?: EntityId; projectId?: EntityId; goalId?: EntityId; dueAt?: string; dueHasTime?: boolean; priority?: Task['priority']; origin?: Task['origin']; estimateMinutes?: number; focusOn?: ISODate; isMilestone?: boolean; }
 export interface NewEvent { title: string; startsAt: string; endsAt: string; areaId?: EntityId; projectId?: EntityId; }
-export interface NewGoal { title: string; areaId: EntityId; horizon: GoalHorizon; why?: string; visionId?: EntityId; }
-export interface NewHabit { title: string; areaId: EntityId; goalId?: EntityId; frequency: Habit['frequency']; timesPerWeek?: number; }
+export interface NewGoal { title: string; areaId: EntityId; horizon: GoalHorizon; why?: string; }
+export interface NewHabit { title: string; areaId: EntityId; goalId?: EntityId; frequency: Habit['frequency']; timesPerWeek?: number; blockMinutes?: number; }
 export type NewFinanceEntry = Omit<Draft<FinanceEntry>, 'description'> & { description?: string };
+export interface NewSession { taskId?: EntityId; goalId?: EntityId; areaId?: EntityId; minutes: number; note?: string; }
+export type NewStudySession = Omit<Draft<StudySession>, 'date'> & { date?: ISODate };
+export type IdentityDraft = Pick<IdentityProfile, 'declarations' | 'serFazerTer' | 'references'>;
 
 export interface LifeActions {
   signIn(): Promise<void>;
   captureDemand(title: string): Task;
   addTask(input: NewTask): Task;
-  /** Appends a completion, or a reversal of the active completion. The Task is never changed. */
+  updateTask(taskId: EntityId, change: Partial<Pick<Task, 'title' | 'estimateMinutes' | 'priority'>>): void;
+  /** Appends a completion, or a reversal of the active completion. The Task is never removed. */
   toggleTaskCompletion(taskId: EntityId): void;
-  /** Appends the time dedicated to a task and, when asked, its completion. */
-  recordSession(taskId: EntityId, minutes: number, complete: boolean): void;
+  /** Appends a postponement fact and moves the planned due date. */
+  postponeTask(taskId: EntityId, toDueAt: string): void;
+  /** Pins a task as one of today's 3 non-negotiables (or unpins with `undefined`). */
+  setFocus(taskId: EntityId, day: ISODate | undefined, estimateMinutes?: number): void;
+  /** Appends focused time (Modo Execução) and, when asked, the completion. */
+  recordSession(input: NewSession, complete?: boolean): void;
   addGoal(input: NewGoal): Goal;
   addProject(areaId: EntityId, title: string, goalId?: EntityId): Project;
   addEvent(input: NewEvent): CalendarEvent;
   addHabit(input: NewHabit): Habit;
-  /** Appends a check-in with the opposite state for that day. */
   toggleHabit(habitId: EntityId, date?: ISODate): void;
-  recordCheckup(kind: CheckupKind, date: ISODate, note?: string): HealthCheckup;
-  recordWeight(weightKg: number, date: ISODate, note?: string): BodyMeasurement;
+  recordHealthMarker(kind: HealthMarkerKind, date: ISODate, valueKg?: number, note?: string): HealthMarker;
   addFinanceEntry(input: NewFinanceEntry): FinanceEntry;
   depositToVault(vaultId: EntityId, amountCents: number, date: ISODate): FinanceEntry | undefined;
   setVaultTarget(vaultId: EntityId, targetCents: number): void;
-  addVision(input: Draft<Vision>): Vision;
-  saveIdentity(manifest: IdentityManifest): IdentityVersion;
+  addIdea(title: string, category: IdeaCategory): Idea;
+  /** Turns an idea into a planned action. The idea stays, marked as converted. */
+  convertIdea(ideaId: EntityId): Task | undefined;
+  setIdeaStatus(ideaId: EntityId, status: Idea['status']): void;
+  addStudySubject(name: string, track: StudyTrack, goalId?: EntityId): StudySubject;
+  addStudySession(input: NewStudySession): StudySession;
+  addFlashcard(deck: FlashcardDeck, front: string, back: string): Flashcard;
+  reviewFlashcard(cardId: EntityId, rating: FlashcardRating): void;
+  saveIdentity(profile: IdentityDraft): IdentityProfile;
+  addEvidence(input: Draft<Evidence>): Evidence;
   setAreaDiagnostic(areaId: EntityId, diagnostic: AreaDiagnostic): void;
   setAreaNote(areaId: EntityId, content: string): void;
   saveAssessment(scores: Record<EntityId, number>): LifeAssessment;
+  addPlaylist(name: string, spotifyUri: string, mood: Playlist['mood']): Playlist;
+  setPlayer(player: Partial<PlayerState>): void;
+  /** Reads Google Calendar with an OAuth token and upserts events by their Google id. */
+  syncGoogleCalendar(token: string, days?: number): Promise<void>;
 }
 export interface LifeStore extends LifeState, LifeActions { mode: DataService['mode']; }
 
@@ -80,7 +102,7 @@ const NOTE_SAVE_DELAY = 700;
 const syncMessage = 'Não foi possível sincronizar a última alteração. Ela continua aqui e será enviada na próxima vez.';
 
 export function LifeProvider({ service, children }: PropsWithChildren<{ service: DataService }>) {
-  const [state, dispatch] = useReducer(reducer, { status: 'loading', snapshot: emptySnapshot() });
+  const [state, dispatch] = useReducer(reducer, { status: 'loading', snapshot: emptySnapshot(), player: { playing: false }, calendarSync: { status: 'idle' } });
   const stateRef = useRef(state);
   stateRef.current = state;
   const noteTimers = useRef(new Map<EntityId, ReturnType<typeof setTimeout>>());
@@ -113,8 +135,10 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
     const snapshot = () => stateRef.current.snapshot;
     const plan = <C extends PlanCollection>(collection: C, draft: Draft<EntityOf<C>>) => { const entity = createEntity<EntityOf<C>>(userId(), draft); persist(collection, entity); return entity; };
     const fact = <C extends FactCollection>(collection: C, draft: Draft<EntityOf<C>>) => { const entity = createEntity<EntityOf<C>>(userId(), draft); persist(collection, entity); return entity; };
+    const edit = <C extends PlanCollection>(collection: C, id: EntityId, change: Partial<Draft<EntityOf<C>>>) => { const current = (snapshot()[collection] as EntityOf<C>[]).find(item => item.id === id); if (current) persist(collection, touch(current, change)); };
     const now = () => new Date().toISOString();
-    const taskContext = (task: Task) => ({ taskId: task.id, areaId: task.areaId, projectId: task.projectId, goalId: task.goalId ?? snapshot().projects.find(project => project.id === task.projectId)?.goalId });
+    const findTask = (taskId: EntityId) => snapshot().tasks.find(item => item.id === taskId);
+    const context = (task: Task) => ({ taskId: task.id, areaId: task.areaId, projectId: task.projectId, goalId: goalOfTask(snapshot(), task)?.id });
     const addTask = (input: NewTask) => plan('tasks', { origin: 'planned', priority: 'normal', ...input, title: input.title.trim() });
     const addFinanceEntry = (input: NewFinanceEntry) => fact('financeEntries', { ...input, description: input.description?.trim() || '' });
 
@@ -122,18 +146,28 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
       signIn: () => service.auth.signInWithGoogle(),
       addTask,
       captureDemand: title => addTask({ title, origin: 'captured' }),
+      updateTask: (taskId, change) => edit('tasks', taskId, change),
       toggleTaskCompletion(taskId) {
-        const task = snapshot().tasks.find(item => item.id === taskId);
+        const task = findTask(taskId);
         if (!task) return;
         const completion = completionOf(taskId, snapshot().executions);
-        if (completion) fact('executions', { ...taskContext(task), kind: 'reversal', reversesId: completion.id, occurredAt: now() } satisfies Draft<ExecutionRecord>);
-        else fact('executions', { ...taskContext(task), kind: 'completion', occurredAt: now() } satisfies Draft<ExecutionRecord>);
+        fact('executions', completion ? { ...context(task), kind: 'reversal', reversesId: completion.id, occurredAt: now() } satisfies Draft<ExecutionRecord> : { ...context(task), kind: 'completion', occurredAt: now() } satisfies Draft<ExecutionRecord>);
       },
-      recordSession(taskId, minutes, complete) {
-        const task = snapshot().tasks.find(item => item.id === taskId);
+      postponeTask(taskId, toDueAt) {
+        const task = findTask(taskId);
         if (!task) return;
-        if (minutes > 0) fact('executions', { ...taskContext(task), kind: 'session', durationMinutes: Math.round(minutes), occurredAt: now() });
-        if (complete && !completionOf(taskId, snapshot().executions)) fact('executions', { ...taskContext(task), kind: 'completion', occurredAt: now() });
+        fact('executions', { ...context(task), kind: 'postponement', fromDueAt: task.dueAt, toDueAt, occurredAt: now() });
+        persist('tasks', touch(task, { dueAt: toDueAt, focusOn: task.focusOn === toISODate(new Date()) ? undefined : task.focusOn }));
+      },
+      setFocus(taskId, day, estimateMinutes) {
+        const task = findTask(taskId);
+        if (task) persist('tasks', touch(task, { focusOn: day, ...(estimateMinutes ? { estimateMinutes } : {}) }));
+      },
+      recordSession(input, complete = false) {
+        const task = input.taskId ? findTask(input.taskId) : undefined;
+        const base = task ? context(task) : { areaId: input.areaId, goalId: input.goalId };
+        if (input.minutes > 0) fact('executions', { ...base, kind: 'session', durationMinutes: Math.round(input.minutes), note: input.note, occurredAt: now() });
+        if (task && complete && !completionOf(task.id, snapshot().executions)) fact('executions', { ...context(task), kind: 'completion', occurredAt: now() });
       },
       addGoal: input => plan('goals', { ...input, title: input.title.trim(), status: 'active', cycle: input.horizon === 'current' ? cycleOf(new Date()) : undefined }),
       addProject: (areaId, title, goalId) => plan('projects', { areaId, title: title.trim(), goalId, status: 'active' }),
@@ -142,38 +176,56 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
       toggleHabit(habitId, date = toISODate(new Date())) {
         fact('habitCheckIns', { habitId, date, done: !isHabitDone(habitId, date, snapshot().habitCheckIns), occurredAt: now() } satisfies Draft<HabitCheckIn>);
       },
-      recordCheckup: (kind, date, note) => fact('healthCheckups', { kind, date, note: note?.trim() || undefined }),
-      recordWeight: (weightKg, date, note) => fact('bodyMeasurements', { weightKg: Math.round(weightKg * 10) / 10, date, note: note?.trim() || undefined }),
+      recordHealthMarker: (kind, date, valueKg, note) => fact('healthMarkers', { kind, date, valueKg: valueKg === undefined ? undefined : Math.round(valueKg * 10) / 10, note: note?.trim() || undefined }),
       addFinanceEntry,
       depositToVault(vaultId, amountCents, date) {
         const vault = snapshot().vaults.find(item => item.id === vaultId);
         return vault ? addFinanceEntry({ type: 'vault_deposit', amountCents, date, category: 'vault', vaultId, description: `Aporte · ${vault.name}` }) : undefined;
       },
-      setVaultTarget(vaultId, targetCents) {
-        const vault = snapshot().vaults.find(item => item.id === vaultId);
-        if (vault) persist('vaults', touch(vault, { targetCents }));
+      setVaultTarget: (vaultId, targetCents) => edit('vaults', vaultId, { targetCents }),
+      addIdea: (title, category) => plan('ideas', { title: title.trim(), category, status: 'inbox' }),
+      convertIdea(ideaId) {
+        const idea = snapshot().ideas.find(item => item.id === ideaId);
+        if (!idea || idea.status === 'converted') return undefined;
+        const goal = idea.category === 'cavu' ? snapshot().goals.find(item => item.pillar === 'business') : undefined;
+        const task = addTask({ title: idea.title, origin: 'idea', goalId: goal?.id, areaId: goal?.areaId });
+        persist('ideas', touch(idea, { status: 'converted', taskId: task.id }));
+        return task;
       },
-      addVision: input => plan('visions', { ...input, title: input.title.trim(), statement: input.statement.trim() }),
-      saveIdentity: manifest => fact('identityVersions', { ...manifest, savedAt: now() }),
-      setAreaDiagnostic(areaId, diagnostic) {
-        const area = snapshot().areas.find(item => item.id === areaId);
-        if (area) persist('areas', touch(area, { diagnostic }));
-      },
+      setIdeaStatus: (ideaId, status) => edit('ideas', ideaId, { status }),
+      addStudySubject: (name, track, goalId) => plan('studySubjects', { name: name.trim(), track, goalId, position: snapshot().studySubjects.filter(subject => subject.track === track).length }),
+      addStudySession: input => fact('studySessions', { ...input, date: input.date ?? toISODate(new Date()) }),
+      addFlashcard: (deck, front, back) => plan('flashcards', { deck, front: front.trim(), back: back.trim() }),
+      reviewFlashcard: (cardId, rating) => { fact('flashcardReviews', { cardId, rating, reviewedAt: now() }); },
+      saveIdentity: profile => fact('identityProfiles', { ...profile, savedAt: now() }),
+      addEvidence: input => fact('evidences', { ...input, title: input.title.trim() }),
+      setAreaDiagnostic: (areaId, diagnostic) => edit('areas', areaId, { diagnostic }),
       setAreaNote(areaId, content) {
         const existing = snapshot().areaNotes.find(note => note.areaId === areaId);
         const note: AreaNote = existing ? touch(existing, { content }) : createEntity<AreaNote>(userId(), { areaId, content });
         dispatch({ type: 'upsert', collection: 'areaNotes', entity: note });
         const timers = noteTimers.current;
         clearTimeout(timers.get(areaId));
-        timers.set(areaId, setTimeout(() => {
-          timers.delete(areaId);
-          const latest = stateRef.current.snapshot.areaNotes.find(item => item.areaId === areaId);
-          if (latest) persist('areaNotes', latest);
-        }, NOTE_SAVE_DELAY));
+        timers.set(areaId, setTimeout(() => { timers.delete(areaId); const latest = stateRef.current.snapshot.areaNotes.find(item => item.areaId === areaId); if (latest) persist('areaNotes', latest); }, NOTE_SAVE_DELAY));
       },
-      saveAssessment(scores) {
-        const cycle = cycleOf(new Date());
-        return fact('assessments', { cycle, period: cycleLabel(cycle), scores, assessedAt: now() });
+      saveAssessment(scores) { const cycle = cycleOf(new Date()); return fact('assessments', { cycle, period: cycleLabel(cycle), scores, assessedAt: now() }); },
+      addPlaylist: (name, spotifyUri, mood) => plan('playlists', { name: name.trim(), spotifyUri, mood, position: snapshot().playlists.length }),
+      setPlayer: player => dispatch({ type: 'player', player }),
+      async syncGoogleCalendar(token, days = 21) {
+        dispatch({ type: 'calendarSync', state: { status: 'syncing' } });
+        try {
+          const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 7);
+          const to = new Date(from.getTime() + (days + 7) * 86_400_000);
+          const items = await fetchGoogleEvents(token, from, to);
+          for (const item of items) {
+            const existing = snapshot().events.find(event => event.source === 'google' && event.externalId === item.externalId);
+            if (existing) persist('events', touch(existing, item));
+            else plan('events', item);
+          }
+          dispatch({ type: 'calendarSync', state: { status: 'synced', lastSyncAt: now(), imported: items.length } });
+        } catch (error) {
+          dispatch({ type: 'calendarSync', state: { status: 'error', message: error instanceof Error ? error.message : 'Falha ao sincronizar.' } });
+        }
       }
     };
   }, [persist, service]);

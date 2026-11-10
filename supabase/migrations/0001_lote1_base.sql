@@ -1,4 +1,4 @@
--- Minha Vida Extraordinária · Lote 1
+-- Mive · Lote 1
 -- Base schema for the unified life state. Every row belongs to one person (auth.users)
 -- and Row Level Security limits reads and writes to that person.
 -- Planning (goals, projects, tasks, calendar_events) and reality (execution_records,

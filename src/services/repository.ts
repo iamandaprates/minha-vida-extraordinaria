@@ -13,12 +13,12 @@ export interface AuthService { currentUser(): Promise<AuthUser | null>; signInWi
 
 /**
  * What the app state talks to. One implementation per backend:
- * `demoDataService` (memory, this session only) and `supabaseDataService` (cloud).
+ * `demoDataService` (local mode in memory, same real seed) and `supabaseDataService` (cloud).
  */
 export interface DataService {
   readonly mode: 'demo' | 'cloud';
   readonly auth: AuthService;
-  /** Loads every collection of one person. Seeds the starter plan on first access. */
+  /** Loads every collection of one person. Seeds Mands' real initial state on first access. */
   load(userId: EntityId): Promise<LifeSnapshot>;
   /** Upsert for plans, insert for facts. Facts are never updated. */
   save<C extends Collection>(collection: C, entity: EntityOf<C>): Promise<void>;

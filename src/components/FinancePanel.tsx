@@ -1,3 +1,4 @@
+import { ArrowDownLeft, ArrowUpRight, Building2, Gem, Lock, Plus, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { categoryLabel, expenseCategories, formatBRL, incomeCategories, parseBRL } from '../domain/catalog';
 import { toISODate, type ExpenseCategory, type FinanceEntry, type FinanceVault, type IncomeCategory } from '../domain/models';
@@ -5,7 +6,8 @@ import { expensesByCategory, financeOverview, formatDay, goalProgress, percent, 
 import { useLife } from '../state/LifeStore';
 import { Button } from './Button';
 import { Card } from './Card';
-import { Dialog, EmptyState, Field, PageIntro, ProgressBar, SectionHeading } from './ui';
+import { Icon, iconByName } from './icons';
+import { Dialog, EmptyState, Field, ProgressBar, SectionHeading } from './ui';
 
 type EntryKind = 'income' | 'expense';
 
@@ -13,7 +15,7 @@ type EntryKind = 'income' | 'expense';
  * Capital manager. Entries are facts (append-only). Vaults are plans with a target;
  * their balance is the sum of deposits and they are untouchable: there is no withdrawal.
  */
-export function FinanceModule() {
+export function FinancePanel() {
   const { snapshot, mode } = useLife();
   const [entryKind, setEntryKind] = useState<EntryKind | null>(null);
   const [depositVault, setDepositVault] = useState<FinanceVault | null>(null);
@@ -25,8 +27,8 @@ export function FinanceModule() {
   const entries = snapshot.financeEntries.slice().sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
 
   return <>
-    <PageIntro eyebrow="ACOMPANHAR" title="Finanças" text="Seu capital com clareza: o que entra, o que sai e o que está guardado para os seus sonhos." action={<><Button onClick={() => setEntryKind('expense')}>Nova saída −</Button><Button variant="primary" onClick={() => setEntryKind('income')}>Nova entrada ＋</Button></>} />
-    {mode === 'demo' && <p className="note">Modo demonstração. Os valores são exemplos desta sessão.</p>}
+    <SectionHeading label="FINANÇAS" title="Seu capital com clareza" action={<div className="page-actions"><Button onClick={() => setEntryKind('expense')}><Icon as={ArrowUpRight} size={16} /> Saída</Button><Button variant="primary" onClick={() => setEntryKind('income')}><Icon as={Plus} size={16} /> Nova Transação</Button></div>} />
+    {mode === 'demo' && <p className="note">Modo local: os lançamentos ficam só nesta sessão até o Supabase ser conectado.</p>}
 
     <section className="stat-grid">
       <Card tone="noble" className="stat stat-hero"><span className="label">SALDO ATUAL</span><b>{formatBRL(overview.balanceCents)}</b><small>Disponível, fora dos cofres</small></Card>
@@ -40,25 +42,25 @@ export function FinanceModule() {
       const { balance, ratio, remaining } = vaultProgress(vault, snapshot);
       const goal = snapshot.goals.find(item => item.id === vault.goalId);
       return <Card key={vault.id} className="vault-card" style={{ ['--vault-color' as string]: vault.color }}>
-        <div className="vault-top"><span className="vault-icon">{vault.icon}</span><span className="lock" title="Cofre intocável">🔒</span></div>
+        <div className="vault-top"><span className="vault-icon"><Icon as={iconByName(vault.icon)} size={20} /></span><span className="lock" title="Cofre intocável"><Icon as={Lock} size={15} /></span></div>
         <h3>{vault.name}</h3>
         {goal && <small className="vault-goal">Meta · {goal.title}</small>}
         <div className="vault-amount"><b>{formatBRL(balance)}</b><span>{vault.targetCents ? `de ${formatBRL(vault.targetCents)}` : 'Meta ainda não definida'}</span></div>
         <ProgressBar value={ratio} color={vault.color} label={vault.name} />
         <div className="vault-foot"><span>{ratio === undefined ? 'Defina um valor alvo para ver o progresso' : ratio >= 1 ? 'Cofre completo ✦' : `${percent(ratio)}% · faltam ${formatBRL(remaining)}`}</span></div>
-        <div className="vault-actions"><Button variant="primary" onClick={() => setDepositVault(vault)}>Guardar</Button><Button variant="ghost" onClick={() => setTargetVault(vault)}>{vault.targetCents ? 'Ajustar meta' : 'Definir meta'}</Button></div>
+        <div className="vault-actions"><Button variant="primary" onClick={() => setDepositVault(vault)}><Icon as={Plus} size={15} /> Guardar</Button><Button variant="ghost" onClick={() => setTargetVault(vault)}>{vault.targetCents ? 'Ajustar meta' : 'Definir meta'}</Button></div>
       </Card>;
     })}</section>
 
     <section className="central-grid two">
       <div>
         <SectionHeading label="MOVIMENTAÇÕES" title="Últimos registros" />
-        <Card className="ledger">{entries.length ? entries.map(entry => <LedgerLine key={entry.id} entry={entry} vaultName={snapshot.vaults.find(vault => vault.id === entry.vaultId)?.name} />) : <EmptyState icon="◈">Registre sua primeira entrada para começar.</EmptyState>}</Card>
+        <Card className="ledger">{entries.length ? entries.map(entry => <LedgerLine key={entry.id} entry={entry} vaultName={snapshot.vaults.find(vault => vault.id === entry.vaultId)?.name} />) : <EmptyState icon={Wallet}>Registre a primeira transação para começar. O saldo nasce dos seus lançamentos reais.</EmptyState>}</Card>
         <p className="fine-print">Registros financeiros são históricos: uma correção entra como um novo lançamento.</p>
       </div>
       <div>
         <SectionHeading label="PARA ONDE FOI" title={`Gastos de ${overview.monthLabel}`} />
-        <Card className="category-card">{categories.length ? categories.map(item => <div key={item.category} className="category-line"><span>{categoryLabel(item.category as ExpenseCategory)}</span><b>{formatBRL(item.cents)}</b><ProgressBar value={maxCategory ? item.cents / maxCategory : 0} label={categoryLabel(item.category as ExpenseCategory)} /></div>) : <EmptyState icon="◌">Nenhum gasto registrado neste mês.</EmptyState>}</Card>
+        <Card className="category-card">{categories.length ? categories.map(item => <div key={item.category} className="category-line"><span>{categoryLabel(item.category as ExpenseCategory)}</span><b>{formatBRL(item.cents)}</b><ProgressBar value={maxCategory ? item.cents / maxCategory : 0} label={categoryLabel(item.category as ExpenseCategory)} /></div>) : <EmptyState icon={Gem}>Nenhum gasto registrado neste mês.</EmptyState>}</Card>
         <GoalLinks />
       </div>
     </section>
@@ -73,19 +75,19 @@ function GoalLinks() {
   const { snapshot } = useLife();
   const goals = snapshot.goals.filter(goal => snapshot.vaults.some(vault => vault.goalId === goal.id));
   if (!goals.length) return null;
-  return <Card className="goal-links"><span className="label">METAS CONECTADAS</span>{goals.map(goal => { const progress = goalProgress(snapshot, goal); return <div key={goal.id} className="goal-link"><span>{goal.title}</span><b>{progress.value === undefined ? '·' : `${percent(progress.value)}%`}</b></div>; })}<small>O progresso da meta soma cofres, ações e hábitos conectados.</small></Card>;
+  return <Card className="goal-links"><span className="label">METAS CONECTADAS</span>{goals.map(goal => { const progress = goalProgress(snapshot, goal); return <div key={goal.id} className="goal-link"><span>{goal.title}</span><b>{progress.value === undefined ? '·' : `${percent(progress.value)}%`}</b></div>; })}<small>O progresso soma receita do mês, cofres, ações e hábitos conectados.</small></Card>;
 }
 
 function LedgerLine({ entry, vaultName }: { entry: FinanceEntry; vaultName?: string }) {
   const sign = entry.type === 'income' ? '+' : '−';
   return <div className={`ledger-line ledger-${entry.type}`}>
-    <span className="ledger-icon">{entry.type === 'income' ? '↓' : entry.type === 'expense' ? '↑' : '🔒'}</span>
+    <span className="ledger-icon"><Icon as={entry.type === 'income' ? ArrowDownLeft : entry.type === 'expense' ? ArrowUpRight : Building2} size={16} /></span>
     <div><strong>{entry.description || categoryLabel(entry.category)}</strong><small>{formatDay(entry.date)} · {entry.type === 'vault_deposit' ? `Cofre ${vaultName ?? ''}` : categoryLabel(entry.category)}</small></div>
     <b>{sign} {formatBRL(entry.amountCents)}</b>
   </div>;
 }
 
-function EntryDialog({ kind, onClose }: { kind: EntryKind; onClose: () => void }) {
+export function EntryDialog({ kind, onClose }: { kind: EntryKind; onClose: () => void }) {
   const { addFinanceEntry } = useLife();
   const options = kind === 'income' ? incomeCategories : expenseCategories;
   const [amount, setAmount] = useState('');

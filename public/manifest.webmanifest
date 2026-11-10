@@ -1,10 +1,11 @@
 {
-  "name": "Minha Vida Extraordinária",
-  "short_name": "Minha Vida",
-  "description": "Seu sistema pessoal de gestão de vida.",
+  "name": "Mive",
+  "short_name": "Mive",
+  "description": "Centro de comando de execução da Mands: planejamento, execução e evolução.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fbfbff",
   "theme_color": "#f3197d",
-  "lang": "pt-BR"
+  "lang": "pt-BR",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

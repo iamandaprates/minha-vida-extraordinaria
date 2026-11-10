@@ -1,14 +1,21 @@
-export type Route = 'central' | 'identity' | 'vision' | 'areas' | 'projects' | 'goals' | 'execution' | 'habits' | 'agenda' | 'studies' | 'finances' | 'library' | 'reviews' | 'cis';
-export type ExecutionView = 'today' | 'week' | 'all';
-/** Optional details carried by a navigation, e.g. which area to open. */
-export type RouteParams = { areaId?: string; view?: ExecutionView };
+import { BookOpen, CalendarDays, Compass, Home, Lightbulb, Target, TrendingUp, type LucideIcon } from 'lucide-react';
 
-export type NavItem = { label: string; icon: string; route: Route; params?: RouteParams };
-export type NavGroup = { label: string; items: NavItem[] };
+/** The 7 high-action guides of Mive. */
+export type Route = 'inicio' | 'agenda' | 'areas' | 'metas' | 'estudos' | 'ideias' | 'evolucao';
+export type AreasTab = 'visao' | 'financas' | 'saude';
+export type AgendaView = 'dia' | 'semana';
+/** Optional details carried by a navigation, e.g. which area or tab to open. */
+export type RouteParams = { areaId?: string; tab?: AreasTab; view?: AgendaView };
 
-export const navigation: NavGroup[] = [
-  { label: 'MINHA VIDA', items: [{ label: 'Central', icon: '✦', route: 'central' }, { label: 'Identidade', icon: '♡', route: 'identity' }, { label: 'Visão', icon: '◉', route: 'vision' }] },
-  { label: 'ORGANIZAR', items: [{ label: 'Áreas da Vida', icon: '◌', route: 'areas' }, { label: 'Metas', icon: '↗', route: 'goals' }, { label: 'Projetos', icon: '□', route: 'projects' }, { label: 'Execução', icon: '✓', route: 'execution' }] },
-  { label: 'ACOMPANHAR', items: [{ label: 'Hábitos', icon: '◒', route: 'habits' }, { label: 'Agenda', icon: '▦', route: 'agenda' }, { label: 'Saúde', icon: '✚', route: 'areas', params: { areaId: 'health' } }, { label: 'Finanças', icon: '◈', route: 'finances' }, { label: 'Estudos', icon: '⌁', route: 'studies' }] },
-  { label: 'REFLETIR', items: [{ label: 'Biblioteca', icon: '▤', route: 'library' }, { label: 'Revisões', icon: '↺', route: 'reviews' }, { label: 'Método CIS', icon: '◇', route: 'cis' }] }
+export type NavItem = { label: string; short: string; icon: LucideIcon; route: Route };
+export const navigation: NavItem[] = [
+  { label: 'Início', short: 'Início', icon: Home, route: 'inicio' },
+  { label: 'Agenda', short: 'Agenda', icon: CalendarDays, route: 'agenda' },
+  { label: 'Áreas da Vida', short: 'Áreas', icon: Compass, route: 'areas' },
+  { label: 'Projetos & Metas', short: 'Metas', icon: Target, route: 'metas' },
+  { label: 'Estudos', short: 'Estudos', icon: BookOpen, route: 'estudos' },
+  { label: 'Ideias', short: 'Ideias', icon: Lightbulb, route: 'ideias' },
+  { label: 'Evolução', short: 'Evolução', icon: TrendingUp, route: 'evolucao' }
 ];
+/** Shown in the mobile bottom bar; the rest live in the glass drawer. */
+export const mobilePrimary: Route[] = ['inicio', 'agenda', 'metas', 'estudos'];
