@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Plus, Radar as RadarIcon, SlidersHorizontal } from 'lucide-react';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { AreasTab, RouteParams } from '../app/navigation';
 import { eventStatusLabel } from '../domain/catalog';
@@ -9,13 +9,14 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { FinancePanel } from '../components/FinancePanel';
 import { HealthPanel } from '../components/HealthPanel';
+import { WellbeingPanel } from '../components/WellbeingPanel';
 import { Icon, iconByName } from '../components/icons';
 import { TaskDialog, TaskLine } from '../components/tasks';
 import { Dialog, EmptyState, Field, PageIntro, ProgressBar, ProgressRing, SectionHeading, Tabs, Tag } from '../components/ui';
 
 const diagnostics: Record<AreaDiagnostic, string> = { well: 'Estou cuidando bem', attention: 'Precisa de atenção', critical: 'Precisa de atenção agora', unknown: 'Sem percepção registrada' };
 const polar = (index: number, total: number, radius: number, center = 180) => { const angle = -Math.PI / 2 + (index * Math.PI * 2) / total; return [center + Math.cos(angle) * radius, center + Math.sin(angle) * radius] as const; };
-const tabs: { key: AreasTab; label: string }[] = [{ key: 'visao', label: 'As 12 áreas' }, { key: 'financas', label: 'Finanças' }, { key: 'saude', label: 'Saúde' }];
+const tabs: { key: AreasTab; label: string }[] = [{ key: 'visao', label: 'As 12 áreas' }, { key: 'financas', label: 'Finanças' }, { key: 'saude', label: 'Saúde' }, { key: 'bemestar', label: 'Bem-estar & Imagem' }];
 
 export function AreasPage({ params, onNavigate }: { params: RouteParams; onNavigate: (params: RouteParams) => void }) {
   const tab = params.tab ?? 'visao';
@@ -28,12 +29,14 @@ export function AreasPage({ params, onNavigate }: { params: RouteParams; onNavig
     {tab === 'visao' && <AreasOverview onOpen={areaId => onNavigate({ tab: 'visao', areaId })} />}
     {tab === 'financas' && <FinancePanel />}
     {tab === 'saude' && <HealthPanel />}
+    {tab === 'bemestar' && <WellbeingPanel />}
   </>;
 }
 
 function AreasOverview({ onOpen }: { onOpen: (areaId: EntityId) => void }) {
   const { snapshot, saveAssessment } = useLife();
   const [axis, setAxis] = useState<'perception' | 'movement'>('perception');
+  const [radarOpen, setRadarOpen] = useState(false);
   const [draft, setDraft] = useState<Record<string, number> | null>(null);
   const now = new Date();
   const cycle = cycleOf(now);
@@ -43,6 +46,11 @@ function AreasOverview({ onOpen }: { onOpen: (areaId: EntityId) => void }) {
   const radarScores = axis === 'perception' ? current?.scores : Object.values(movement).some(value => value !== undefined) ? Object.fromEntries(Object.entries(movement).map(([id, value]) => [id, (value ?? 0) * 10])) : undefined;
 
   return <>
+    <div className="diagnosis-bar">
+      <button type="button" className={`diagnosis-toggle ${radarOpen ? 'is-open' : ''}`} onClick={() => setRadarOpen(!radarOpen)} aria-expanded={radarOpen}><Icon as={RadarIcon} size={18} /> {radarOpen ? 'Ocultar Diagnóstico MAAS' : 'Visualizar Diagnóstico MAAS'} <Icon as={ChevronDown} size={16} /></button>
+      <Button variant="primary" onClick={() => setDraft(ofCycle?.scores ?? current?.scores ?? Object.fromEntries(snapshot.areas.map(area => [area.id, 0])))}><Icon as={SlidersHorizontal} size={16} /> Nova Autoavaliação do Ciclo</Button>
+    </div>
+    {radarOpen && <>
     <section className="area-evaluation">
       <Card className="radar-card">
         <div className="card-head"><div><span className="label">RADAR DA VIDA</span><h2>{axis === 'perception' ? (current ? `Percepção · ${current.period}` : 'Sem autoavaliação ainda') : 'Movimento real · 14 dias'}</h2></div><Tabs label="Eixo do radar" value={axis} options={[{ key: 'perception', label: 'Percepção' }, { key: 'movement', label: 'Movimento real' }]} onChange={setAxis} /></div>
@@ -52,12 +60,12 @@ function AreasOverview({ onOpen }: { onOpen: (areaId: EntityId) => void }) {
       <Card className="cycle-card" tone="soft">
         <span className="label">CICLO ATUAL</span><h2>{cycleLabel(cycle)}</h2>
         <p>{ofCycle ? `Sua autoavaliação deste ciclo foi registrada em ${new Date(ofCycle.assessedAt).toLocaleDateString('pt-BR')}.` : 'Ainda não há autoavaliação neste ciclo. Leva cinco minutos e mostra onde colocar energia.'}</p>
-        <Button variant="primary" onClick={() => setDraft(ofCycle?.scores ?? current?.scores ?? Object.fromEntries(snapshot.areas.map(area => [area.id, 0])))}><Icon as={SlidersHorizontal} size={16} /> Nova Autoavaliação do Ciclo</Button>
         {snapshot.assessments.length > 0 && <div className="assessment-history">{snapshot.assessments.slice().reverse().map(item => <div key={item.id}><b>{item.period}</b><small>{new Date(item.assessedAt).toLocaleDateString('pt-BR')}</small></div>)}</div>}
       </Card>
     </section>
+    </>}
     <SectionHeading label="ACOMPANHAMENTO CONTÍNUO" title={`Suas ${snapshot.areas.length} áreas`} />
-    <section className="area-grid">{snapshot.areas.map(area => {
+    <section className="area-grid area-grid-12">{snapshot.areas.map(area => {
       const value = movement[area.id]; const tone = balanceTone(value); const summary = areaSummary(snapshot, area.id, now); const score = current?.scores[area.id];
       return <Card className="area-card" key={area.id} onClick={() => onOpen(area.id)} role="button" tabIndex={0} onKeyDown={event => event.key === 'Enter' && onOpen(area.id)} style={{ '--area-color': area.color } as CSSProperties}>
         <div className="area-card-top"><span className="area-symbol"><Icon as={iconByName(area.icon)} size={19} /></span><span className="area-score">{score ? <>{score}<small>/10</small></> : <small>Sem nota</small>}</span></div>
@@ -119,6 +127,7 @@ function AreaDetail({ area, onBack }: { area: LifeArea; onBack: () => void }) {
     </section>
     {area.id === 'health' && <HealthPanel />}
     {area.id === 'finance' && <FinancePanel />}
+    {area.id === 'wellbeing' && <WellbeingPanel />}
     <section className="record-grid">
       <RecordCard title="Metas" onAdd={() => setDialog('goal')}>{goals.length ? goals.map(goal => { const progress = goalProgress(snapshot, goal, now); return <div key={goal.id} className="record-line"><div><b>{goal.title}</b><small>{progress.parts.map(part => part.detail).join(' · ') || 'Ainda sem registros'}</small></div><span>{progress.value === undefined ? '·' : `${percent(progress.value)}%`}</span></div>; }) : <EmptyState>Nenhuma meta nesta área.</EmptyState>}</RecordCard>
       <RecordCard title="Hábitos" onAdd={() => setDialog('habit')}>{habits.length ? habits.map(habit => { const consistency = habitConsistency(habit, snapshot.habitCheckIns, now); return <div key={habit.id} className="record-line"><div><b>{habit.title}</b><small>{habit.frequency === 'daily' ? 'Diário' : `${habit.timesPerWeek ?? 1}x por semana`}</small></div><span>{consistency ? `${percent(consistency.ratio)}%` : '·'}</span></div>; }) : <EmptyState>Nenhum hábito nesta área.</EmptyState>}</RecordCard>

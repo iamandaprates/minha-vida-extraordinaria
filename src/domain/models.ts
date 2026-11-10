@@ -5,9 +5,11 @@
  *    Screens never copy data; they read the same snapshot through selectors.
  * 2. Planning is not reality:
  *    - Plans (editable): Goal, Project, Task, CalendarEvent, Habit, FinanceVault, Idea,
- *      StudySubject, Flashcard, Playlist, AreaNote, LifeArea.
- *    - Facts (append-only): ExecutionRecord, HabitCheckIn, HealthMarker, FinanceEntry,
- *      StudySession, FlashcardReview, LifeAssessment, CisRecord, IdentityProfile, Evidence.
+ *      StudyDeck, StudySubject, Flashcard, Playlist, AreaNote, LifeArea, AestheticRitual,
+ *      UserProfile.
+ *    - Facts (append-only): ExecutionRecord, BehaviorEvent, HabitCheckIn, HealthMarker,
+ *      FinanceEntry, StudySession, FlashcardReview, AestheticRecord, LifeAssessment,
+ *      CisRecord, IdentityProfile, Evidence.
  *    A fact is never edited or deleted. Undoing a completion appends a `reversal`;
  *    postponing a task appends a `postponement`; the latest fact wins.
  * 3. No invented numbers: every percentage is derived in `selectors.ts`.
@@ -53,8 +55,12 @@ export interface CisRecord extends OwnedEntity {
 
 export interface SerFazerTer { ser: string[]; fazer: string[]; ter: string[]; }
 export interface Reference { name: string; relation?: string; }
+/** Personal image dossier: recommended palette (hex), silhouette lines and visual archetype. */
+export interface ImageDossier { palette: string[]; silhouette: string[]; archetype: string; notes?: string; }
 /** Every save is a new version; the latest is the current profile. */
-export interface IdentityProfile extends OwnedEntity { declarations: string[]; serFazerTer: SerFazerTer; references: Reference[]; savedAt: ISODateTime; }
+export interface IdentityProfile extends OwnedEntity { declarations: string[]; serFazerTer: SerFazerTer; references: Reference[]; imageDossier?: ImageDossier; savedAt: ISODateTime; }
+/** Account presentation: display name and photo (a small JPEG data URL, resized on upload). */
+export interface UserProfile extends OwnedEntity { displayName?: string; photoDataUrl?: string; }
 /** Evidence bank: a past achievement to come back to when confidence drops. */
 export interface Evidence extends OwnedEntity { title: string; date?: ISODate; note?: string; areaId?: EntityId; }
 
@@ -77,11 +83,13 @@ export interface Goal extends OwnedEntity {
   /** Pillar of the Mands S.A. index this goal feeds. */
   pillar?: 'health' | 'business' | 'studies' | 'finance' | 'language';
 }
-export interface Project extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; status: 'active' | 'paused' | 'complete'; focus?: boolean; }
+/** `tag` links ideas: a project with tag "CAVU" shows every idea tagged #CAVU. */
+export interface Project extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; status: 'active' | 'paused' | 'complete'; focus?: boolean; tag?: string; }
 
 /* ── Execution ──────────────────────────────────────────────────────────── */
 
 export type TaskOrigin = 'planned' | 'captured' | 'idea';
+export type FocusRole = 'magna' | 'secondary';
 export interface Task extends OwnedEntity {
   title: string;
   origin: TaskOrigin;
@@ -92,8 +100,13 @@ export interface Task extends OwnedEntity {
   dueHasTime?: boolean;
   priority: Priority;
   estimateMinutes?: number;
-  /** Day on which this task is one of the 3 non-negotiable focus items. */
+  /**
+   * Day on which this task is one of the 3 deliveries of the day (1 magna + up to 2
+   * secondary). The pin expires with the day: unfinished deliveries simply return to their
+   * project, without any red "overdue" pile.
+   */
   focusOn?: ISODate;
+  focusRole?: FocusRole;
   /** A milestone of its goal: counts in the "Marcos" part of the progress. */
   isMilestone?: boolean;
 }
@@ -132,6 +145,27 @@ export interface ExecutionRecord extends OwnedEntity {
   note?: string;
 }
 
+/**
+ * Behavioural facts that feed the Evolução metrics (initiation, focus, resumption, finish).
+ * - `focus_planned` / `focus_unplanned`: a delivery entered or left the day's 3 deliveries.
+ * - `session_start`, `session_pause`, `session_resume`, `session_end`: Modo Foco timeline.
+ * - `unblock`: a "Preciso Começar" trigger was used.
+ */
+export type BehaviorKind = 'focus_planned' | 'focus_unplanned' | 'session_start' | 'session_pause' | 'session_resume' | 'session_end' | 'unblock';
+export type UnblockTrigger = 'no_start' | 'too_big' | 'perfectionism' | 'distracted' | 'low_energy' | 'avoiding';
+export interface BehaviorEvent extends OwnedEntity {
+  kind: BehaviorKind;
+  occurredAt: ISODateTime;
+  date: ISODate;
+  sessionId?: string;
+  taskId?: EntityId;
+  role?: FocusRole;
+  trigger?: UnblockTrigger;
+  plannedMinutes?: number;
+  focusedMinutes?: number;
+  note?: string;
+}
+
 /* ── Habits ─────────────────────────────────────────────────────────────── */
 
 export interface Habit extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; frequency: 'daily' | 'weekly'; timesPerWeek?: number; icon?: string; active: boolean; blockMinutes?: number; }
@@ -143,6 +177,13 @@ export type CheckupKind = 'blood_test' | 'medical' | 'dental';
 export type HealthMarkerKind = CheckupKind | 'weight';
 /** One health fact: a preventive check-up on a date, or a weight measurement. */
 export interface HealthMarker extends OwnedEntity { kind: HealthMarkerKind; date: ISODate; valueKg?: number; note?: string; }
+
+/* ── Bem-estar & Imagem ─────────────────────────────────────────────────── */
+
+/** A beauty or maintenance ritual with its return interval (plan). */
+export interface AestheticRitual extends OwnedEntity { name: string; intervalDays: number; icon: string; position: number; }
+/** The ritual happened on this date (fact). */
+export interface AestheticRecord extends OwnedEntity { ritualId: EntityId; date: ISODate; note?: string; }
 
 /* ── Finance ────────────────────────────────────────────────────────────── */
 
@@ -156,17 +197,29 @@ export interface FinanceVault extends OwnedEntity { name: string; targetCents: n
 /* ── Ideas ──────────────────────────────────────────────────────────────── */
 
 export type IdeaCategory = 'cavu' | 'cafe_baiano' | 'geral';
-export interface Idea extends OwnedEntity { title: string; category: IdeaCategory; status: 'inbox' | 'converted' | 'archived'; taskId?: EntityId; }
+export interface IdeaMedia { kind: 'link' | 'image'; url: string; name?: string; }
+export interface Idea extends OwnedEntity {
+  title: string;
+  category: IdeaCategory;
+  status: 'inbox' | 'converted' | 'archived';
+  taskId?: EntityId;
+  projectId?: EntityId;
+  description?: string;
+  /** Free tags without "#", e.g. ["CAVU", "Marketing"]. */
+  tags: string[];
+  media: IdeaMedia[];
+}
 
 /* ── Studies ────────────────────────────────────────────────────────────── */
 
-export type StudyTrack = 'prf' | 'english';
-export interface StudySubject extends OwnedEntity { name: string; track: StudyTrack; position: number; goalId?: EntityId; }
+/** A study track (discipline): Concurso PRF, Inglês, Administração... Holds subjects and flashcards. */
+export interface StudyDeck extends OwnedEntity { name: string; color: string; position: number; goalId?: EntityId; }
+export interface StudySubject extends OwnedEntity { name: string; deckId: EntityId; position: number; goalId?: EntityId; }
 /** A study block that happened, optionally with questions solved and correct answers. */
 export interface StudySession extends OwnedEntity { subjectId: EntityId; date: ISODate; minutes: number; questions?: number; correct?: number; note?: string; }
-export type FlashcardDeck = 'english' | 'legislacao';
-export interface Flashcard extends OwnedEntity { deck: FlashcardDeck; front: string; back: string; }
-export type FlashcardRating = 'easy' | 'medium' | 'hard';
+export interface Flashcard extends OwnedEntity { deckId: EntityId; front: string; back: string; }
+/** Anki answers. The SM-2 schedule is derived from the full review history. */
+export type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
 export interface FlashcardReview extends OwnedEntity { cardId: EntityId; rating: FlashcardRating; reviewedAt: ISODateTime; }
 
 /* ── Music ──────────────────────────────────────────────────────────────── */
@@ -176,6 +229,7 @@ export interface Playlist extends OwnedEntity { name: string; mood: 'focus' | 'w
 /* ── Aggregate ──────────────────────────────────────────────────────────── */
 
 export interface LifeSnapshot {
+  profiles: UserProfile[];
   areas: LifeArea[];
   assessments: LifeAssessment[];
   cisRecords: CisRecord[];
@@ -187,12 +241,16 @@ export interface LifeSnapshot {
   tasks: Task[];
   events: CalendarEvent[];
   executions: ExecutionRecord[];
+  behaviorEvents: BehaviorEvent[];
   habits: Habit[];
   habitCheckIns: HabitCheckIn[];
   healthMarkers: HealthMarker[];
+  aestheticRituals: AestheticRitual[];
+  aestheticRecords: AestheticRecord[];
   financeEntries: FinanceEntry[];
   vaults: FinanceVault[];
   ideas: Idea[];
+  studyDecks: StudyDeck[];
   studySubjects: StudySubject[];
   studySessions: StudySession[];
   flashcards: Flashcard[];
@@ -202,10 +260,10 @@ export interface LifeSnapshot {
 export type Collection = keyof LifeSnapshot;
 export type EntityOf<C extends Collection> = LifeSnapshot[C][number];
 
-export const factCollections = ['assessments', 'cisRecords', 'identityProfiles', 'evidences', 'executions', 'habitCheckIns', 'healthMarkers', 'financeEntries', 'studySessions', 'flashcardReviews'] as const satisfies readonly Collection[];
+export const factCollections = ['assessments', 'cisRecords', 'identityProfiles', 'evidences', 'executions', 'behaviorEvents', 'habitCheckIns', 'healthMarkers', 'aestheticRecords', 'financeEntries', 'studySessions', 'flashcardReviews'] as const satisfies readonly Collection[];
 export type FactCollection = (typeof factCollections)[number];
 export type PlanCollection = Exclude<Collection, FactCollection>;
-export const collections: Collection[] = ['areas', 'assessments', 'cisRecords', 'areaNotes', 'identityProfiles', 'evidences', 'goals', 'projects', 'tasks', 'events', 'executions', 'habits', 'habitCheckIns', 'healthMarkers', 'financeEntries', 'vaults', 'ideas', 'studySubjects', 'studySessions', 'flashcards', 'flashcardReviews', 'playlists'];
+export const collections: Collection[] = ['profiles', 'areas', 'assessments', 'cisRecords', 'areaNotes', 'identityProfiles', 'evidences', 'goals', 'projects', 'tasks', 'events', 'executions', 'behaviorEvents', 'habits', 'habitCheckIns', 'healthMarkers', 'aestheticRituals', 'aestheticRecords', 'financeEntries', 'vaults', 'ideas', 'studyDecks', 'studySubjects', 'studySessions', 'flashcards', 'flashcardReviews', 'playlists'];
 
 export const emptySnapshot = (): LifeSnapshot => Object.fromEntries(collections.map(collection => [collection, []])) as unknown as LifeSnapshot;
 

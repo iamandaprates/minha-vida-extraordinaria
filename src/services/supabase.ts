@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { reconcileAreas } from '../data/areas';
 import { createSeed, seedOrder } from '../data/seed';
 import { collections, emptySnapshot, factCollections, type Collection, type EntityId, type EntityOf, type LifeSnapshot, type OwnedEntity } from '../domain/models';
 import type { AuthService, CloudRepository, DataService } from './repository';
@@ -43,6 +44,7 @@ export function getSupabaseClient(config: SupabaseConfig): SupabaseClient {
 /* ── Tables and row mapping ─────────────────────────────────────────────── */
 
 export const tables: Record<Collection, string> = {
+  profiles: 'user_profiles',
   areas: 'life_areas',
   assessments: 'life_assessments',
   cisRecords: 'cis_records',
@@ -54,12 +56,16 @@ export const tables: Record<Collection, string> = {
   tasks: 'tasks',
   events: 'calendar_events',
   executions: 'execution_records',
+  behaviorEvents: 'behavioral_metrics',
   habits: 'habits',
   habitCheckIns: 'habit_check_ins',
   healthMarkers: 'health_markers',
+  aestheticRituals: 'aesthetic_rituals',
+  aestheticRecords: 'aesthetic_records',
   financeEntries: 'finance_entries',
   vaults: 'finance_vaults',
   ideas: 'idea_inbox',
+  studyDecks: 'study_decks',
   studySubjects: 'study_subjects',
   studySessions: 'study_sessions',
   flashcards: 'flashcards',
@@ -155,8 +161,20 @@ export function createSupabaseDataService(config: SupabaseConfig): DataService {
           (snapshot[collection] as EntityOf<typeof collection>[]).push(...items);
         }
       }
-      snapshot.areas.sort((a, b) => a.position - b.position);
-      return { ...emptySnapshot(), ...snapshot };
+      else {
+        // Accounts created in earlier versions: add what the seed has and they lack.
+        const seed = createSeed(userId);
+        for (const collection of ['profiles', 'studyDecks', 'aestheticRituals'] as const) {
+          if ((snapshot[collection] as unknown[]).length) continue;
+          const items = seed[collection] as EntityOf<typeof collection>[];
+          for (const item of items) await repository(collection).save(userId, item as never);
+          (snapshot[collection] as EntityOf<typeof collection>[]).push(...items);
+        }
+      }
+      // The 12 official areas: catalogue names and order, the person's diagnostic preserved.
+      const { areas, changed } = reconcileAreas(snapshot.areas, userId);
+      for (const area of changed) await repository('areas').save(userId, area);
+      return { ...emptySnapshot(), ...snapshot, areas };
     },
     async save(collection, entity) { await repository(collection).save(entity.userId, entity); },
     async remove(collection, userId, id) { await repository(collection).remove(userId, id); }

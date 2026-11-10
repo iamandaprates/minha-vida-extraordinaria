@@ -2,7 +2,7 @@ import { BookOpen, CalendarDays, Compass, Home, Lightbulb, Target, TrendingUp, t
 
 /** The 7 high-action guides of Mive. */
 export type Route = 'inicio' | 'agenda' | 'areas' | 'metas' | 'estudos' | 'ideias' | 'evolucao';
-export type AreasTab = 'visao' | 'financas' | 'saude';
+export type AreasTab = 'visao' | 'financas' | 'saude' | 'bemestar';
 export type AgendaView = 'dia' | 'semana';
 /** Optional details carried by a navigation, e.g. which area or tab to open. */
 export type RouteParams = { areaId?: string; tab?: AreasTab; view?: AgendaView };

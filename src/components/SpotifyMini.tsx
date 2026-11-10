@@ -1,4 +1,4 @@
-import { ExternalLink, Music2, Pause, Play, Plus } from 'lucide-react';
+import { ExternalLink, Music2, Pause, Play, Plus, Trash2, Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { moodLabels } from '../domain/catalog';
 import type { Playlist } from '../domain/models';
@@ -36,10 +36,13 @@ export function toSpotifyUri(input: string): string | undefined {
 const openUrl = (uri: string) => { const [, type, id] = uri.split(':'); return `https://open.spotify.com/${type}/${id}`; };
 
 export function SpotifyMini({ compact = false }: { compact?: boolean }) {
-  const { snapshot, player, setPlayer, addPlaylist } = useLife();
+  const { snapshot, player, setPlayer, addPlaylist, removePlaylist } = useLife();
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const [link, setLink] = useState('');
+  const [name, setName] = useState('');
+  const [mood, setMood] = useState<Playlist['mood']>('focus');
+  const [notice, setNotice] = useState('');
   const host = useRef<HTMLDivElement>(null);
   const controller = useRef<EmbedController | null>(null);
   const loadedUri = useRef<string | undefined>(undefined);
@@ -60,7 +63,16 @@ export function SpotifyMini({ compact = false }: { compact?: boolean }) {
   const toggle = async () => { if (!current) return; const embed = await ensure(current.spotifyUri); if (embed) embed.togglePlay(); };
   const choose = async (playlist: Playlist) => { setPlayer({ playlistId: playlist.id }); const embed = await ensure(playlist.spotifyUri); embed?.play(); };
   useEffect(() => { if (open && current && !controller.current && !failed) void ensure(current.spotifyUri); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // "Preciso Começar · distraída" asks for the focus playlist: load it and play.
+  const lastRequest = useRef(player.playRequest);
+  useEffect(() => { if (player.playRequest === lastRequest.current) return; lastRequest.current = player.playRequest; if (current && !compact === !window.matchMedia('(max-width: 768px)').matches) void ensure(current.spotifyUri).then(embed => embed?.play()); }, [player.playRequest]); // eslint-disable-line react-hooks/exhaustive-deps
   const uri = toSpotifyUri(link);
+  const add = () => {
+    if (!uri) { setNotice('Cole um link de playlist do Spotify.'); return; }
+    const created = addPlaylist(name || 'Minha playlist', uri, mood);
+    setNotice(created ? '' : 'Essa playlist já está na sua lista.');
+    if (created) { setLink(''); setName(''); }
+  };
 
   return <div className={`spotify ${compact ? 'is-compact' : ''}`}>
     <div className="spotify-pill">
@@ -69,12 +81,18 @@ export function SpotifyMini({ compact = false }: { compact?: boolean }) {
     </div>
     <div className={`spotify-panel ${open ? 'is-open' : ''}`} role="dialog" aria-label="Spotify" aria-hidden={!open}>
       <span className="label">TRILHA DO MOMENTO</span>
-      <div className="chip-row">{playlists.map(playlist => <button key={playlist.id} type="button" className={`chip ${current?.id === playlist.id ? 'selected' : ''}`} onClick={() => void choose(playlist)}>{moodLabels[playlist.mood]} · {playlist.name}</button>)}</div>
+      <ul className="playlist-list">{playlists.map(playlist => <li key={playlist.id} className={current?.id === playlist.id ? 'is-current' : ''}>
+        <button type="button" className="playlist-pick" onClick={() => void choose(playlist)}><span className="mood">{moodLabels[playlist.mood]}</span><b>{playlist.name}</b>{current?.id === playlist.id && player.playing && <i className="eq" aria-hidden="true"><em /><em /><em /></i>}</button>
+        <button type="button" className="icon-chip" onClick={() => removePlaylist(playlist.id)} aria-label={`Remover ${playlist.name}`} title="Remover playlist"><Icon as={Trash2} size={14} /></button>
+      </li>)}</ul>
+      <div className="spotify-controls"><button type="button" className="spotify-play big" onClick={() => void toggle()} disabled={!current} aria-label={player.playing ? 'Pausar' : 'Tocar'}><Icon as={player.playing ? Pause : Play} size={18} /></button><span className="support"><Icon as={Volume2} size={13} /> O volume fica no player abaixo ou no seu dispositivo: o Spotify não libera esse controle para sites.</span></div>
       <div className="spotify-embed" ref={host} />
       {failed && current && <p className="fine-print">Não foi possível carregar o player aqui. <a href={openUrl(current.spotifyUri)} target="_blank" rel="noreferrer">Abrir no Spotify <Icon as={ExternalLink} size={12} /></a></p>}
-      <form className="spotify-add" onSubmit={event => { event.preventDefault(); if (uri) { addPlaylist('Minha playlist', uri, 'focus'); setLink(''); } }}>
-        <input value={link} onChange={event => setLink(event.target.value)} placeholder="Colar link de playlist do Spotify" aria-label="Link de playlist do Spotify" />
-        <button type="submit" className="icon-chip" disabled={!uri} aria-label="Adicionar playlist"><Icon as={Plus} size={15} /></button>
+      <form className="spotify-add-form" onSubmit={event => { event.preventDefault(); add(); }}>
+        <span className="label">ADICIONAR PLAYLIST</span>
+        <input value={link} onChange={event => setLink(event.target.value)} placeholder="Link da playlist no Spotify" aria-label="Link de playlist do Spotify" />
+        <div className="spotify-add"><input value={name} onChange={event => setName(event.target.value)} placeholder="Nome" aria-label="Nome da playlist" /><select value={mood} onChange={event => setMood(event.target.value as Playlist['mood'])} aria-label="Uso">{(Object.keys(moodLabels) as Playlist['mood'][]).map(key => <option key={key} value={key}>{moodLabels[key]}</option>)}</select><button type="submit" className="icon-chip" aria-label="Adicionar playlist"><Icon as={Plus} size={15} /></button></div>
+        {notice && <small className="is-warn">{notice}</small>}
       </form>
     </div>
   </div>;

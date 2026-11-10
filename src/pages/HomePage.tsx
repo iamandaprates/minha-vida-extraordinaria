@@ -1,8 +1,8 @@
-import { AlertTriangle, ArrowRight, Check, Clock, GraduationCap, HeartPulse, Pin, Plus, ShoppingBag, Sparkles, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Clock, Crown, GraduationCap, HeartPulse, Pin, Plus, RotateCcw, ShoppingBag, Sparkles, Wallet, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Route, RouteParams } from '../app/navigation';
 import { checkupLabels, eventStatusLabel } from '../domain/catalog';
-import { toISODate, type Goal, type Task } from '../domain/models';
+import { toISODate, type FocusRole, type Goal, type Task } from '../domain/models';
 import { activeGoals, areaName, detectStalledTasks, eventsOn, formatTime, getHealthAlerts, goalProgress, habitStreak, isHabitDone, isTaskCompleted, lifeSignals, missingCheckups, percent, todayFocus } from '../domain/selectors';
 import { useLife } from '../state/LifeStore';
 import { Button } from '../components/Button';
@@ -10,6 +10,7 @@ import { Card } from '../components/Card';
 import { TimerCard } from '../components/FocusTimer';
 import { Icon, iconByName } from '../components/icons';
 import { FocusPinDialog, TaskDialog } from '../components/tasks';
+import { UnblockDialog } from '../components/UnblockDialog';
 import { EmptyState, LinkButton, Orb, ProgressBar } from '../components/ui';
 
 type Navigate = (route: Route, params?: RouteParams) => void;
@@ -19,8 +20,9 @@ function useClock() { const [now, setNow] = useState(new Date()); useEffect(() =
 export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; onNavigate: Navigate; onOpenAssistant: () => void }) {
   const { snapshot, toggleTaskCompletion, toggleHabit } = useLife();
   const now = useClock();
-  const [pinTask, setPinTask] = useState<Task | null>(null);
-  const [newTask, setNewTask] = useState(false);
+  const [pin, setPin] = useState<{ task: Task; role: FocusRole } | null>(null);
+  const [newTask, setNewTask] = useState<FocusRole | null>(null);
+  const [unblock, setUnblock] = useState<Task | null>(null);
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const focus = todayFocus(snapshot, now);
@@ -68,16 +70,15 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
     <section className="home-grid">
       <Card tone="noble" className="focus-card">
         <div className="focus-glow" aria-hidden="true" />
-        <div className="card-head"><div><span className="label">FOCO DE HOJE · 3 INEGOCIÁVEIS</span><h2>{focus.pinned.length ? `${focus.done} de ${focus.pinned.length} feitas` : 'Escolha suas 3 ações'}</h2></div>{focus.pinnedMinutes > 0 && <span className="focus-total"><Icon as={Clock} size={15} /> {focus.pinnedMinutes} min restantes</span>}</div>
+        <div className="card-head"><div><span className="label">ENTREGAS DE HOJE · REGRA DAS 3</span><h2>{focus.deliveries.length ? `${focus.done} de ${focus.deliveries.length} entregues` : 'Escolha suas entregas'}</h2></div>{focus.minutesLeft > 0 && <span className="focus-total"><Icon as={Clock} size={15} /> {focus.minutesLeft} min</span>}</div>
+        {focus.returned.length > 0 && <p className="focus-returned"><Icon as={RotateCcw} size={14} /> {focus.returned.length === 1 ? 'Uma entrega de ontem voltou' : `${focus.returned.length} entregas de ontem voltaram`} para o projeto. Sem culpa: escolha de novo se ainda fizer sentido.</p>}
         <ul className="focus-list">
-          {focus.pinned.map(task => { const done = isTaskCompleted(task.id, snapshot.executions); return <li key={task.id} className={done ? 'is-done' : ''}>
-            <button type="button" className="focus-check" aria-pressed={done} aria-label={`${done ? 'Reabrir' : 'Concluir'} ${task.title}`} onClick={() => toggleTaskCompletion(task.id)}>{done && <Icon as={Check} size={16} strokeWidth={2.4} />}</button>
-            <span><b>{task.title}</b><small>{areaName(snapshot, task.areaId)}{task.estimateMinutes ? ` · ${task.estimateMinutes} min` : ''}</small></span>
-          </li>; })}
-          {Array.from({ length: focus.openSlots }, (_, index) => <li key={`slot-${index}`} className="is-slot"><span className="focus-slot-number">{focus.pinned.length + index + 1}</span><span><b>Espaço livre</b><small>{index === 0 && focus.suggestions.length ? 'Sugestões abaixo, ou crie uma ação física.' : 'Uma ação física, com tempo estimado.'}</small></span></li>)}
+          {focus.magna ? <DeliveryItem task={focus.magna} role="magna" /> : <EmptySlot role="magna" number={1} />}
+          {focus.secondary.map(task => <DeliveryItem key={task.id} task={task} role="secondary" />)}
+          {Array.from({ length: focus.openSlots.secondary }, (_, index) => <EmptySlot key={index} role="secondary" number={focus.secondary.length + index + 2} />)}
         </ul>
-        {focus.openSlots > 0 && <div className="focus-suggestions">{focus.suggestions.slice(0, 3).map(task => <button key={task.id} type="button" className="suggestion" onClick={() => setPinTask(task)}><Icon as={Pin} size={13} /> {task.title}</button>)}<button type="button" className="suggestion is-new" onClick={() => setNewTask(true)}><Icon as={Plus} size={13} /> Nova ação física</button></div>}
-        <p className="focus-foot">Marcar como feito grava um registro com data e hora. A tarefa continua no histórico.</p>
+        {(focus.openSlots.magna + focus.openSlots.secondary > 0) && <div className="focus-suggestions"><span className="focus-hint">Dos projetos ativos:</span>{focus.suggestions.slice(0, 3).map(task => <button key={task.id} type="button" className="suggestion" onClick={() => setPin({ task, role: focus.openSlots.magna ? 'magna' : 'secondary' })}><Icon as={Pin} size={13} /> {task.title}</button>)}<button type="button" className="suggestion is-new" onClick={() => setNewTask(focus.openSlots.magna ? 'magna' : 'secondary')}><Icon as={Plus} size={13} /> Nova entrega física</button></div>}
+        <div className="focus-cta"><Button variant="light" onClick={() => { const next = focus.deliveries.find(task => !isTaskCompleted(task.id, snapshot.executions)); if (next) setUnblock(next); else setNewTask(focus.openSlots.magna ? 'magna' : 'secondary'); }}><Icon as={Zap} size={16} /> Preciso Começar</Button><span>Travou? Escolha o motivo e a Mive dá o primeiro passo com você.</span></div>
       </Card>
       <TimerCard />
     </section>
@@ -103,7 +104,20 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
 
     <section className="goal-strip" aria-label="Metas magnas">{goals.map(goal => { const progress = goalProgress(snapshot, goal, now); return <button key={goal.id} type="button" className="goal-chip" onClick={() => onNavigate('metas')}><span><b>{goal.title}</b><small>{progress.parts.map(part => part.label).join(' · ') || 'Sem registros ainda'}</small></span><ProgressBar value={progress.value} color={goal.color} label={goal.title} /><em>{progress.value === undefined ? '·' : `${percent(progress.value)}%`}</em></button>; })}</section>
 
-    {pinTask && <FocusPinDialog task={pinTask} onClose={() => setPinTask(null)} />}
-    {newTask && <TaskDialog onClose={() => setNewTask(false)} defaults={{ focus: true }} />}
+    {pin && <FocusPinDialog task={pin.task} role={pin.role} onClose={() => setPin(null)} />}
+    {newTask && <TaskDialog onClose={() => setNewTask(null)} defaults={{ focus: newTask }} />}
+    {unblock && <UnblockDialog task={unblock} onClose={() => setUnblock(null)} />}
   </>;
+}
+
+function DeliveryItem({ task, role }: { task: Task; role: FocusRole }) {
+  const { snapshot, toggleTaskCompletion } = useLife();
+  const done = isTaskCompleted(task.id, snapshot.executions);
+  return <li className={`${done ? 'is-done' : ''} ${role === 'magna' ? 'is-magna' : ''}`}>
+    <button type="button" className="focus-check" aria-pressed={done} aria-label={`${done ? 'Reabrir' : 'Concluir'} ${task.title}`} onClick={() => toggleTaskCompletion(task.id)}>{done && <Icon as={Check} size={16} strokeWidth={2.4} />}</button>
+    <span><small>{role === 'magna' ? <><Icon as={Crown} size={12} /> PRIORIDADE MAGNA</> : 'SECUNDÁRIA'}</small><b>{task.title}</b><em>{areaName(snapshot, task.areaId)}{task.estimateMinutes ? ` · ${task.estimateMinutes} min` : ''}</em></span>
+  </li>;
+}
+function EmptySlot({ role, number }: { role: FocusRole; number: number }) {
+  return <li className={`is-slot ${role === 'magna' ? 'is-magna' : ''}`}><span className="focus-slot-number">{number}</span><span><small>{role === 'magna' ? 'PRIORIDADE MAGNA' : 'SECUNDÁRIA'}</small><b>{role === 'magna' ? 'A entrega que faz o dia valer' : 'Espaço livre'}</b><em>Uma ação física, com tempo estimado.</em></span></li>;
 }

@@ -2,7 +2,8 @@ import { AlertTriangle, Flag, FolderKanban, Lock, Plus, Repeat } from 'lucide-re
 import { useState, type CSSProperties } from 'react';
 import { formatBRL } from '../domain/catalog';
 import { cycleLabel, cycleOf } from '../domain/models';
-import { activeGoals, areaName, areaOf, detectStalledTasks, formatActivity, goalProgress, habitConsistency, isTaskCompleted, openTasks, percent, projectProgress, tasksOfGoal, vaultProgress } from '../domain/selectors';
+import { activeGoals, areaName, areaOf, detectStalledTasks, formatActivity, goalProgress, habitConsistency, ideasOfProject, isTaskCompleted, openTasks, percent, projectProgress, tasksOfGoal, vaultProgress } from '../domain/selectors';
+import { IdeaCard, IdeaDialog } from './IdeasPage';
 import { useLife } from '../state/LifeStore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -18,6 +19,8 @@ export function GoalsPage() {
   const [taskFor, setTaskFor] = useState<{ goalId?: string; projectId?: string } | null>(null);
   const [projectOpen, setProjectOpen] = useState(false);
   const [filter, setFilter] = useState<TaskFilter>('open');
+  const [ideaOpen, setIdeaOpen] = useState<string | null>(null);
+  const openIdea = snapshot.ideas.find(idea => idea.id === ideaOpen);
   const now = new Date();
   const goals = activeGoals(snapshot, now);
   const projects = snapshot.projects.filter(project => project.status === 'active');
@@ -56,6 +59,7 @@ export function GoalsPage() {
         <p className="fine-print">{formatActivity(info.lastActivityAt)}</p>
         <div className="task-list">{projectTasks.length ? projectTasks.map(task => <TaskLine key={task.id} task={task} snapshot={snapshot} compact />) : <EmptyState>Nenhuma ação ainda. Qual é o primeiro passo?</EmptyState>}</div>
         <Button variant="ghost" onClick={() => setTaskFor({ projectId: project.id })}><Icon as={Plus} size={15} /> Nova próxima ação</Button>
+        {project.tag && <LinkedIdeas projectTag={project.tag} ideas={ideasOfProject(snapshot, project)} onOpen={setIdeaOpen} />}
       </Card>;
     })}</section>
 
@@ -68,6 +72,7 @@ export function GoalsPage() {
 
     {taskFor && <TaskDialog onClose={() => setTaskFor(null)} defaults={taskFor} />}
     {projectOpen && <ProjectDialog onClose={() => setProjectOpen(false)} />}
+    {openIdea && <IdeaDialog idea={openIdea} onClose={() => setIdeaOpen(null)} />}
   </>;
 }
 
@@ -78,4 +83,12 @@ function ProjectDialog({ onClose }: { onClose: () => void }) {
     <Field label="Projeto"><input autoFocus value={title} onChange={event => setTitle(event.target.value)} placeholder="Ex.: Café Baiano" /></Field>
     <div className="field-row"><Field label="Área"><AreaSelect areas={snapshot.areas} value={areaId} onChange={setAreaId} allowEmpty={false} /></Field><Field label="Meta"><select value={goalId} onChange={event => setGoalId(event.target.value)}><option value="">Sem meta</option>{snapshot.goals.filter(goal => goal.status === 'active').map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></Field></div>
   </Dialog>;
+}
+
+/** Ideas tagged with the project tag, synchronised with the Ideas box. */
+function LinkedIdeas({ projectTag, ideas, onOpen }: { projectTag: string; ideas: import('../domain/models').Idea[]; onOpen: (id: string) => void }) {
+  return <div className="linked-ideas">
+    <span className="label">IDEIAS VINCULADAS (#{projectTag.toUpperCase()})</span>
+    {ideas.length ? <div className="linked-grid">{ideas.slice(0, 6).map(idea => <IdeaCard key={idea.id} idea={idea} onOpen={() => onOpen(idea.id)} />)}</div> : <p className="support">Nenhuma ideia com #{projectTag} ainda. Toda ideia marcada com essa tag aparece aqui.</p>}
+  </div>;
 }

@@ -4,12 +4,12 @@ import { mobilePrimary, navigation, type Route } from '../app/navigation';
 import { TimerBadge } from './FocusTimer';
 import { Icon } from './icons';
 import { Logo } from './Logo';
+import { Avatar, ProfileMenu } from './ProfileMenu';
 import { RegisterMenu } from './RegisterMenu';
 import { SpotifyMini } from './SpotifyMini';
 import { Drawer } from './ui';
 
 interface TopNavProps { route: Route; onNavigate: (route: Route) => void; onIdentity: () => void; theme: 'light' | 'dark'; onToggleTheme: () => void; profileName: string; profileCaption: string; ready: boolean; }
-const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('');
 
 /** Floating glass pill on desktop; compact top bar, bottom bar and glass drawer on mobile. */
 export function TopNav({ route, onNavigate, onIdentity, theme, onToggleTheme, profileName, profileCaption, ready }: TopNavProps) {
@@ -28,7 +28,7 @@ export function TopNav({ route, onNavigate, onIdentity, theme, onToggleTheme, pr
           {ready && <SpotifyMini />}
           {identityButton()}
           {themeButton}
-          <span className="avatar" title={`${profileName} · ${profileCaption}`}>{initials(profileName)}</span>
+          {ready ? <ProfileMenu caption={profileCaption} /> : <span className="avatar" title={profileName}>{profileName.slice(0, 1)}</span>}
         </div>
       </nav>
       <div className="topnav-mobile">
@@ -42,7 +42,7 @@ export function TopNav({ route, onNavigate, onIdentity, theme, onToggleTheme, pr
     </nav>
     {drawer && <Drawer eyebrow="MIVE" title="Mais" onClose={() => setDrawer(false)}>
       <div className="drawer-nav">{navigation.filter(item => !mobilePrimary.includes(item.route)).map(item => <button key={item.route} type="button" className={route === item.route ? 'active' : ''} onClick={() => go(item.route)}><Icon as={item.icon} size={18} />{item.label}</button>)}</div>
-      <div className="drawer-section drawer-row"><span className="avatar">{initials(profileName)}</span><div><b>{profileName}</b><small>{profileCaption}</small></div>{themeButton}</div>
+      <div className="drawer-section drawer-row">{ready ? <ProfileMenu caption={profileCaption} /> : <Avatar />}<div><b>{profileName}</b><small>{profileCaption}</small></div>{themeButton}</div>
     </Drawer>}
   </>;
 }

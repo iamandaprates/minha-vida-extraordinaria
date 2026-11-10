@@ -34,7 +34,7 @@ function Shell() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const name = life.user?.name?.split(' ')[0] ?? 'Mands';
+  const name = (life.snapshot.profiles[0]?.displayName ?? life.user?.name ?? 'Mands').split(' ')[0];
   const ready = life.status === 'ready';
 
   useEffect(() => { document.documentElement.classList.toggle('dark-mode', theme === 'dark'); try { localStorage.setItem('mive-theme', theme); } catch { /* preference only */ } }, [theme]);
@@ -42,7 +42,7 @@ function Shell() {
 
   return <div className="app-shell">
     <div className="ambient" aria-hidden="true"><i className="blob b1" /><i className="blob b2" /><i className="blob b3" /></div>
-    <TopNav route={route} onNavigate={next => navigate(next)} onIdentity={() => setIdentityOpen(true)} theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} profileName={life.user?.name ?? 'Mands'} profileCaption={life.mode === 'demo' ? 'Modo local' : life.user?.email ?? 'Conta conectada'} ready={ready} />
+    <TopNav route={route} onNavigate={next => navigate(next)} onIdentity={() => setIdentityOpen(true)} theme={theme} onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')} profileName={life.snapshot.profiles[0]?.displayName ?? life.user?.name ?? 'Mands'} profileCaption={life.mode === 'demo' ? 'Modo local' : life.user?.email ?? 'Conta conectada'} ready={ready} />
     <main className="content">
       {life.syncIssue && <p className="note" role="status">{life.syncIssue}</p>}
       {!ready ? <StatusPage /> : <>
