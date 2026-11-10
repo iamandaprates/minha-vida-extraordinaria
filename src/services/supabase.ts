@@ -18,17 +18,25 @@ import type { AuthService, CloudRepository, DataService } from './repository';
 
 /* ── Client ─────────────────────────────────────────────────────────────── */
 
-export interface SupabaseConfig { url: string; anonKey: string; }
+/**
+ * `accessToken` is for scripts (the Claude Code skills): requests run as that person,
+ * so Row Level Security still applies, append-only rules included. The browser omits it
+ * and uses the normal Google session.
+ */
+export interface SupabaseConfig { url: string; anonKey: string; accessToken?: string; }
 
-export function readSupabaseConfig(env: Record<string, string | undefined> = import.meta.env): SupabaseConfig | null {
+export function readSupabaseConfig(env: Record<string, string | undefined>): SupabaseConfig | null {
   const url = env.VITE_SUPABASE_URL?.trim();
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim();
-  return url && anonKey ? { url, anonKey } : null;
+  const accessToken = env.MVE_ACCESS_TOKEN?.trim() || undefined;
+  return url && anonKey ? { url, anonKey, accessToken } : null;
 }
 
 let client: SupabaseClient | null = null;
 export function getSupabaseClient(config: SupabaseConfig): SupabaseClient {
-  client ??= createClient(config.url, config.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  client ??= config.accessToken
+    ? createClient(config.url, config.anonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { headers: { Authorization: `Bearer ${config.accessToken}` } } })
+    : createClient(config.url, config.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
   return client;
 }
 
@@ -100,11 +108,10 @@ export function createSupabaseRepository<T extends OwnedEntity>(supabase: Supaba
 
 /* ── Auth (Google via Supabase) ─────────────────────────────────────────── */
 
-export function createSupabaseAuthService(supabase: SupabaseClient): AuthService {
+export function createSupabaseAuthService(supabase: SupabaseClient, accessToken?: string): AuthService {
   return {
     async currentUser() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
+      const user = accessToken ? (await supabase.auth.getUser(accessToken)).data.user : (await supabase.auth.getSession()).data.session?.user;
       return user ? { id: user.id, email: user.email, name: user.user_metadata?.full_name as string | undefined } : null;
     },
     async signInWithGoogle() {
@@ -129,7 +136,7 @@ export function createSupabaseDataService(config: SupabaseConfig): DataService {
 
   return {
     mode: 'cloud',
-    auth: createSupabaseAuthService(supabase),
+    auth: createSupabaseAuthService(supabase, config.accessToken),
     async load(userId: EntityId): Promise<LifeSnapshot> {
       const lists = await Promise.all(collections.map(collection => repository(collection).list(userId)));
       const snapshot = Object.fromEntries(collections.map((collection, index) => [collection, lists[index]])) as unknown as LifeSnapshot;

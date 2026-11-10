@@ -104,8 +104,12 @@ export interface ExecutionRecord extends OwnedEntity {
 
 /* ── Habits ─────────────────────────────────────────────────────────────── */
 
-/** Plan of a repeated behaviour. `timesPerWeek` applies to weekly habits. */
-export interface Habit extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; frequency: 'daily' | 'weekly'; timesPerWeek?: number; icon?: string; active: boolean; }
+/**
+ * Plan of a repeated behaviour. `timesPerWeek` applies to weekly habits.
+ * `blockMinutes` marks habits that need time in the agenda (training, study), so the
+ * optimizer can propose a block; habits like hydration do not.
+ */
+export interface Habit extends OwnedEntity { title: string; areaId: EntityId; goalId?: EntityId; frequency: 'daily' | 'weekly'; timesPerWeek?: number; icon?: string; active: boolean; blockMinutes?: number; }
 /** Fact for one day. The latest check-in of a habit on a date is its state. */
 export interface HabitCheckIn extends OwnedEntity { habitId: EntityId; date: ISODate; done: boolean; occurredAt: ISODateTime; }
 

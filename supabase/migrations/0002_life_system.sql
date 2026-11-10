@@ -34,6 +34,7 @@ create table if not exists public.habits (
   times_per_week smallint check (times_per_week is null or times_per_week between 1 and 7),
   icon text,
   active boolean not null default true,
+  block_minutes smallint check (block_minutes is null or block_minutes > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (user_id, id),

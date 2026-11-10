@@ -38,10 +38,10 @@ export function createStarterPlan(userId: EntityId, now = new Date()): Pick<Life
   ];
   const projects: Project[] = [owned<Project>(p.cavu, { title: 'Projeto CAVU', areaId: 'professional', goalId: g.cavu, status: 'active', focus: true })];
   const habits: Habit[] = [
-    owned<Habit>(h.training, { title: 'Treino', areaId: 'health', goalId: g.shape, frequency: 'daily', icon: '◒', active: true }),
+    owned<Habit>(h.training, { title: 'Treino', areaId: 'health', goalId: g.shape, frequency: 'daily', icon: '◒', active: true, blockMinutes: 45 }),
     owned<Habit>(h.water, { title: 'Hidratação · 2 litros', areaId: 'health', goalId: g.shape, frequency: 'daily', icon: '◌', active: true }),
     owned<Habit>(h.food, { title: 'Alimentação limpa', areaId: 'health', goalId: g.shape, frequency: 'daily', icon: '✦', active: true }),
-    owned<Habit>(h.study, { title: 'Bloco de estudos PRF', areaId: 'intellectual', goalId: g.prf, frequency: 'daily', icon: '⌁', active: true })
+    owned<Habit>(h.study, { title: 'Bloco de estudos PRF', areaId: 'intellectual', goalId: g.prf, frequency: 'daily', icon: '⌁', active: true, blockMinutes: 50 })
   ];
   const vaults: FinanceVault[] = [
     owned<FinanceVault>(v.cavu, { name: 'Reserva de lançamento CAVU', targetCents: 0, goalId: g.cavu, color: '#f3197d', icon: '✦' }),
