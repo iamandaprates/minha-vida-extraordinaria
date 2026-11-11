@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { seedPlan } from '../data/seed';
+import { seedLife, seedPlan, spiritualHabits } from '../data/seed';
 import { todayISO } from '../lib/dates';
-import type { AgendaBlock, BehaviorEvent, BehaviorKind, DeliveryRole, Goal, Idea, MiveData, Profile, Project, Settings, Task, ThemeMode } from '../types';
+import type { AgendaBlock, AreaEntry, AreaId, BehaviorEvent, BehaviorKind, DeliveryRole, Exam, Goal, Habit, Idea, MaasAssessment, MiveData, Profile, Project, Ritual, Settings, Task, ThemeMode, Transaction, Vault, WeightEntry } from '../types';
 import { idbStorage, SCHEMA_VERSION, STORAGE_KEY } from './storage';
 
 const prefersDark = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
@@ -17,7 +17,8 @@ export const initialData = (): MiveData => ({
   ...seedPlan(),
   blocks: [],
   habitChecks: [],
-  ideas: []
+  ideas: [],
+  ...seedLife()
 });
 
 type Draft<T> = Omit<T, 'id' | 'createdAt'>;
@@ -55,7 +56,35 @@ interface MiveActions {
   toggleBlock(blockId: string): void;
 
   toggleHabit(habitId: string, date?: string): void;
+  addHabit(title: string, areaId: AreaId): void;
+  deleteHabit(habitId: string): void;
   addIdea(draft: Omit<Draft<Idea>, 'archivedAt'>): Idea;
+
+  /** Lança no livro-caixa. Com vaultId, também vira aporte no cofre. */
+  addTransaction(draft: Draft<Transaction>): void;
+  deleteTransaction(transactionId: string): void;
+  addVault(name: string, targetCents: number): void;
+  updateVault(vaultId: string, change: Partial<Pick<Vault, 'name' | 'targetCents'>>): void;
+  deleteVault(vaultId: string): void;
+  addDeposit(vaultId: string, amountCents: number, date: string): void;
+  removeDeposit(vaultId: string, depositId: string): void;
+
+  addWeight(date: string, kg: number): void;
+  deleteWeight(entryId: string): void;
+  updateExam(examId: string, change: Partial<Omit<Exam, 'id'>>): void;
+  addExam(name: string): void;
+  deleteExam(examId: string): void;
+
+  addRitual(name: string, intervalDays: number): void;
+  updateRitual(ritualId: string, change: Partial<Omit<Ritual, 'id'>>): void;
+  deleteRitual(ritualId: string): void;
+
+  addMaas(scores: MaasAssessment['scores'], note?: string): void;
+  deleteMaas(assessmentId: string): void;
+
+  addAreaEntry(draft: Omit<Draft<AreaEntry>, 'doneAt'>): void;
+  updateAreaEntry(entryId: string, change: Partial<Omit<Draft<AreaEntry>, 'areaId'>>): void;
+  deleteAreaEntry(entryId: string): void;
 }
 export type MiveState = MiveData & MiveActions & { hydrated: boolean };
 
@@ -115,7 +144,44 @@ export const useMive = create<MiveState>()(
           const exists = state.habitChecks.some(check => check.habitId === habitId && check.date === date);
           return { habitChecks: exists ? state.habitChecks.filter(check => !(check.habitId === habitId && check.date === date)) : [...state.habitChecks, { habitId, date }] };
         }),
-        addIdea: draft => { const idea: Idea = { ...draft, id: id(), createdAt: now() }; set(state => ({ ideas: [...state.ideas, idea] })); return idea; }
+        addHabit: (title, areaId) => { const habit: Habit = { id: id(), title: title.trim(), areaId }; set(state => ({ habits: [...state.habits, habit] })); },
+        deleteHabit: habitId => set(state => ({ habits: state.habits.filter(habit => habit.id !== habitId), habitChecks: state.habitChecks.filter(check => check.habitId !== habitId) })),
+        addIdea: draft => { const idea: Idea = { ...draft, id: id(), createdAt: now() }; set(state => ({ ideas: [...state.ideas, idea] })); return idea; },
+
+        addTransaction: draft => {
+          const transaction: Transaction = { ...draft, id: id(), createdAt: now() };
+          set(state => ({
+            transactions: [...state.transactions, transaction],
+            vaults: draft.vaultId ? state.vaults.map(vault => vault.id === draft.vaultId ? { ...vault, deposits: [...vault.deposits, { id: id(), amountCents: draft.amountCents, date: draft.date, transactionId: transaction.id }] } : vault) : state.vaults
+          }));
+        },
+        deleteTransaction: transactionId => set(state => ({ transactions: state.transactions.filter(item => item.id !== transactionId), vaults: state.vaults.map(vault => ({ ...vault, deposits: vault.deposits.filter(deposit => deposit.transactionId !== transactionId) })) })),
+        addVault: (name, targetCents) => set(state => ({ vaults: [...state.vaults, { id: id(), name: name.trim(), targetCents, deposits: [], createdAt: now() }] })),
+        updateVault: (vaultId, change) => set(state => ({ vaults: state.vaults.map(vault => vault.id === vaultId ? { ...vault, ...change } : vault) })),
+        deleteVault: vaultId => set(state => ({ vaults: state.vaults.filter(vault => vault.id !== vaultId), transactions: state.transactions.map(item => item.vaultId === vaultId ? { ...item, vaultId: undefined } : item) })),
+        addDeposit: (vaultId, amountCents, date) => set(state => ({ vaults: state.vaults.map(vault => vault.id === vaultId ? { ...vault, deposits: [...vault.deposits, { id: id(), amountCents, date }] } : vault) })),
+        removeDeposit: (vaultId, depositId) => {
+          const deposit = get().vaults.find(vault => vault.id === vaultId)?.deposits.find(item => item.id === depositId);
+          if (deposit?.transactionId) { get().deleteTransaction(deposit.transactionId); return; }
+          set(state => ({ vaults: state.vaults.map(vault => vault.id === vaultId ? { ...vault, deposits: vault.deposits.filter(item => item.id !== depositId) } : vault) }));
+        },
+
+        addWeight: (date, kg) => { const entry: WeightEntry = { id: id(), date, kg }; set(state => ({ weights: [...state.weights.filter(item => item.date !== date), entry].sort((a, b) => a.date.localeCompare(b.date)) })); },
+        deleteWeight: entryId => set(state => ({ weights: state.weights.filter(item => item.id !== entryId) })),
+        updateExam: (examId, change) => set(state => ({ exams: state.exams.map(exam => exam.id === examId ? { ...exam, ...change } : exam) })),
+        addExam: name => set(state => ({ exams: [...state.exams, { id: id(), name: name.trim() }] })),
+        deleteExam: examId => set(state => ({ exams: state.exams.filter(exam => exam.id !== examId) })),
+
+        addRitual: (name, intervalDays) => set(state => ({ rituals: [...state.rituals, { id: id(), name: name.trim(), intervalDays }] })),
+        updateRitual: (ritualId, change) => set(state => ({ rituals: state.rituals.map(ritual => ritual.id === ritualId ? { ...ritual, ...change } : ritual) })),
+        deleteRitual: ritualId => set(state => ({ rituals: state.rituals.filter(ritual => ritual.id !== ritualId) })),
+
+        addMaas: (scores, note) => set(state => ({ maas: [...state.maas, { id: id(), date: todayISO(), scores, note: note?.trim() || undefined, createdAt: now() }] })),
+        deleteMaas: assessmentId => set(state => ({ maas: state.maas.filter(item => item.id !== assessmentId) })),
+
+        addAreaEntry: draft => set(state => ({ areaEntries: [{ ...draft, id: id(), createdAt: now() }, ...state.areaEntries] })),
+        updateAreaEntry: (entryId, change) => set(state => ({ areaEntries: state.areaEntries.map(entry => entry.id === entryId ? { ...entry, ...change } : entry) })),
+        deleteAreaEntry: entryId => set(state => ({ areaEntries: state.areaEntries.filter(entry => entry.id !== entryId) }))
       };
     },
     {
@@ -127,6 +193,8 @@ export const useMive = create<MiveState>()(
       migrate: (persisted, version) => {
         const data = persisted as Partial<MiveData>;
         if (version < 2) return { ...initialData(), ...data, ...seedPlan(), blocks: [], habitChecks: [], ideas: [] };
+        /** Versão 2 (Fases 2 e 3) não tinha finanças, saúde, rituais, MAAS nem ferramentas de área. */
+        if (version < 3) return { ...data, ...seedLife(), habits: [...(data.habits ?? []), ...spiritualHabits().filter(habit => !data.habits?.some(item => item.id === habit.id))] };
         return data;
       },
       onRehydrateStorage: () => () => useMive.setState({ hydrated: true })
@@ -136,6 +204,6 @@ export const useMive = create<MiveState>()(
 
 /** Os dados puros, sem as ações (o mesmo formato do backup). */
 export function selectData(state: MiveData): MiveData {
-  const { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas } = state;
-  return { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas };
+  const { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries } = state;
+  return { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries };
 }

@@ -3,14 +3,16 @@ import { useEffect, useRef, useState } from 'react';
 import { todayISO } from '../lib/dates';
 import { habitDone } from '../lib/selectors';
 import { useMive } from '../store/useMive';
+import { TransactionModal } from '../modules/financas/FinancasPanel';
+import { WeightModal } from '../modules/saude/SaudePanel';
 import { Button, Input, Modal, cn } from '../ui';
 
 type Action = 'demanda' | 'habitos';
 const actions: { key: Action | 'financas' | 'peso'; label: string; icon: LucideIcon; phase?: number }[] = [
   { key: 'demanda', label: 'Demanda rápida', icon: Zap },
   { key: 'habitos', label: 'Check-in de hábitos', icon: ListChecks },
-  { key: 'financas', label: 'Transação financeira', icon: Wallet, phase: 4 },
-  { key: 'peso', label: 'Registro de peso', icon: Scale, phase: 4 }
+  { key: 'financas', label: 'Transação financeira', icon: Wallet },
+  { key: 'peso', label: 'Registro de peso', icon: Scale }
 ];
 
 /** "+ Registrar": ação rápida global. */
@@ -19,6 +21,7 @@ export function RegisterMenu({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'menu' | 'habitos'>('menu');
   const [demand, setDemand] = useState(false);
+  const [modal, setModal] = useState<'financas' | 'peso' | null>(null);
   const [title, setTitle] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { if (!open) return; const close = (event: MouseEvent) => { if (ref.current && ref.current.offsetParent !== null && !ref.current.contains(event.target as Node)) { setOpen(false); setView('menu'); } }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, [open]);
@@ -29,7 +32,7 @@ export function RegisterMenu({ compact = false }: { compact?: boolean }) {
       <Plus size={18} strokeWidth={2} />{!compact && 'Registrar'}
     </button>
     {open && <div role="menu" className="glass-strong absolute right-0 top-14 z-50 w-72 rounded-3xl p-2">
-      {view === 'menu' ? actions.map(action => <button key={action.key} type="button" role="menuitem" disabled={Boolean(action.phase)} onClick={() => { if (action.key === 'habitos') setView('habitos'); if (action.key === 'demanda') { setOpen(false); setDemand(true); } }} className="flex min-h-[48px] w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-ink transition hover:bg-rosa/70 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent dark:hover:bg-white/5">
+      {view === 'menu' ? actions.map(action => <button key={action.key} type="button" role="menuitem" disabled={Boolean(action.phase)} onClick={() => { if (action.key === 'habitos') setView('habitos'); if (action.key === 'demanda') { setOpen(false); setDemand(true); } if (action.key === 'financas' || action.key === 'peso') { setOpen(false); setModal(action.key); } }} className="flex min-h-[48px] w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-ink transition hover:bg-rosa/70 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent dark:hover:bg-white/5">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-rosa text-magenta dark:bg-white/10"><action.icon size={17} strokeWidth={1.75} /></span>
         <span className="flex-1">{action.label}</span>{action.phase && <span className="text-[11px] font-medium text-muted">Fase {action.phase}</span>}
       </button>) : <>
@@ -46,5 +49,7 @@ export function RegisterMenu({ compact = false }: { compact?: boolean }) {
         <Button type="submit" disabled={!title.trim()}>Registrar</Button>
       </form>
     </Modal>
+    {modal === 'financas' && <TransactionModal onClose={() => setModal(null)} />}
+    {modal === 'peso' && <WeightModal onClose={() => setModal(null)} />}
   </div>;
 }

@@ -42,12 +42,12 @@ export function GoalCard({ goal, onEdit }: { goal: Goal; onEdit: (goal: Goal) =>
 }
 
 /** Cria ou edita uma meta, com marcos iniciais opcionais. */
-export function GoalModal({ goal, projectId, onClose }: { goal?: Goal; projectId?: string; onClose: () => void }) {
+export function GoalModal({ goal, projectId, areaId: defaultArea, onClose }: { goal?: Goal; projectId?: string; areaId?: AreaId; onClose: () => void }) {
   const state = useMive();
   const project = state.projects.find(item => item.id === (goal?.projectId ?? projectId));
   const [title, setTitle] = useState(goal?.title ?? '');
   const [why, setWhy] = useState(goal?.why ?? '');
-  const [areaId, setAreaId] = useState<AreaId>(goal?.areaId ?? project?.areaId ?? 'profissional');
+  const [areaId, setAreaId] = useState<AreaId>(goal?.areaId ?? project?.areaId ?? defaultArea ?? 'profissional');
   const [linked, setLinked] = useState(goal?.projectId ?? projectId ?? '');
   const [milestones, setMilestones] = useState('');
   const save = () => {

@@ -13,4 +13,4 @@ export const idbStorage: StateStorage = {
 };
 
 export const STORAGE_KEY = 'mive-data';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;

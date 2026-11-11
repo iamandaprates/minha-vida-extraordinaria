@@ -94,6 +94,47 @@ export interface HabitCheck { habitId: string; date: ISODate; }
 /** Ideia da Geladeira de Potencial (a guia completa chega na Fase 5). */
 export interface Idea { id: string; title: string; description?: string; tags: string[]; createdAt: string; archivedAt?: string; }
 
+
+/** Livro-caixa manual (sem Open Banking). Valores em centavos para não perder precisão. */
+export type TransactionKind = 'receita' | 'despesa';
+export interface Transaction {
+  id: string;
+  kind: TransactionKind;
+  amountCents: number;
+  category: string;
+  date: ISODate;
+  /** Para onde o dinheiro foi ou de onde veio (conta, cartão, pessoa). */
+  destination?: string;
+  /** Quando preenchido, a saída do caixa vira aporte neste cofre. */
+  vaultId?: string;
+  createdAt: string;
+}
+export interface VaultDeposit { id: string; amountCents: number; date: ISODate; transactionId?: string; }
+export interface Vault { id: string; name: string; targetCents: number; deposits: VaultDeposit[]; createdAt: string; }
+
+/** Saúde: peso e exames preventivos. */
+export interface WeightEntry { id: string; date: ISODate; kg: number; }
+export interface Exam { id: string; name: string; lastDate?: ISODate; }
+
+/** Bem-estar & Imagem: rituais com ciclo de retorno. */
+export interface Ritual { id: string; name: string; intervalDays: number; lastDate?: ISODate; }
+
+/** Diagnóstico MAAS: notas 1 a 10 por área, com histórico. */
+export interface MaasAssessment { id: string; date: ISODate; scores: Partial<Record<AreaId, number>>; note?: string; createdAt: string; }
+
+/** Registro livre de uma ferramenta de área (diário, acordos, viagens, momentos...). */
+export interface AreaEntry {
+  id: string;
+  areaId: AreaId;
+  /** Chave da seção dentro da área (ex.: "gatilho", "viagem"). */
+  section: string;
+  title: string;
+  body?: string;
+  date?: ISODate;
+  doneAt?: string;
+  createdAt: string;
+}
+
 /** Tudo o que a Mive guarda. É exatamente o conteúdo do backup JSON. */
 export interface MiveData {
   profile: Profile | null;
@@ -106,6 +147,13 @@ export interface MiveData {
   habits: Habit[];
   habitChecks: HabitCheck[];
   ideas: Idea[];
+  transactions: Transaction[];
+  vaults: Vault[];
+  weights: WeightEntry[];
+  exams: Exam[];
+  rituals: Ritual[];
+  maas: MaasAssessment[];
+  areaEntries: AreaEntry[];
 }
 
 export interface BackupFile {

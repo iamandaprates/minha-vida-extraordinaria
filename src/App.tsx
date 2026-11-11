@@ -5,6 +5,8 @@ import { MobileNav } from './layout/BottomNav';
 import { TopNav } from './layout/TopNav';
 import { Waves } from './layout/Waves';
 import { AgendaPage } from './modules/agenda/AgendaPage';
+import { AreaPage } from './modules/areas/AreaPage';
+import { AreasPage } from './modules/areas/AreasPage';
 import { ProjetoDetail } from './modules/projetos/ProjetoDetail';
 import { ProjetosPage } from './modules/projetos/ProjetosPage';
 import { ConfiguracoesPage } from './modules/configuracoes/ConfiguracoesPage';
@@ -31,7 +33,9 @@ function Shell() {
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/projetos" element={<ProjetosPage />} />
           <Route path="/projetos/:id" element={<ProjetoDetail />} />
-          {['/areas', '/estudos', '/ideias', '/evolucao'].map(path => <Route key={path} path={path} element={<PlaceholderPage />} />)}
+          <Route path="/areas" element={<AreasPage />} />
+          <Route path="/areas/:id" element={<AreaPage />} />
+          {['/estudos', '/ideias', '/evolucao'].map(path => <Route key={path} path={path} element={<PlaceholderPage />} />)}
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

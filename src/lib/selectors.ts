@@ -1,4 +1,4 @@
-import { todayISO } from './dates';
+import { fromISODate, toISODate, todayISO } from './dates';
 import type { MiveData, Task } from '../types';
 
 /** As entregas do dia: 1 Prioridade Magna + até 2 secundárias. Pinos de dias anteriores não contam. */
@@ -22,3 +22,15 @@ export const habitDone = (data: Pick<MiveData, 'habitChecks'>, habitId: string, 
 export const normalizeTag = (tag: string) => tag.trim().replace(/^#+/, '').replace(/\s+/g, '');
 export const ideasWithTag = (data: Pick<MiveData, 'ideas'>, tag?: string) => !tag ? [] : data.ideas.filter(idea => !idea.archivedAt && idea.tags.some(item => normalizeTag(item).toLowerCase() === normalizeTag(tag).toLowerCase()));
 export const goalProgress = (goal: { milestones: { doneAt?: string }[] }) => goal.milestones.length ? goal.milestones.filter(item => item.doneAt).length / goal.milestones.length : undefined;
+/** Dias corridos desde uma data ISO (undefined se nunca registrada). */
+export const daysSince = (date?: string, today = todayISO()) => date ? Math.round((fromISODate(today).getTime() - fromISODate(date).getTime()) / 86_400_000) : undefined;
+/** Sequência atual de dias seguidos com o hábito feito (hoje ainda em aberto não quebra). */
+export function habitStreak(data: Pick<MiveData, 'habitChecks'>, habitId: string, today = todayISO()) {
+  const days = new Set(data.habitChecks.filter(check => check.habitId === habitId).map(check => check.date));
+  const cursor = fromISODate(today);
+  if (!days.has(today)) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (days.has(toISODate(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  return streak;
+}
+export const vaultSaved = (vault: { deposits: { amountCents: number }[] }) => vault.deposits.reduce((sum, item) => sum + item.amountCents, 0);

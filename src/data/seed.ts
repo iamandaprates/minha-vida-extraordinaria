@@ -1,4 +1,5 @@
 import type { Goal, Habit, MiveData, Project, Task } from '../types';
+import { toISODate } from '../lib/dates';
 
 /**
  * Plano real da Mands, trazido da versão anterior (branch mive-v1, Método CIS).
@@ -32,7 +33,46 @@ export function seedPlan(now = new Date()): Pick<MiveData, 'projects' | 'goals' 
     { id: 'habit-agua', title: 'Hidratação · 3 litros', areaId: 'saude' },
     { id: 'habit-alimentacao', title: 'Alimentação limpa', areaId: 'saude' },
     { id: 'habit-prf', title: 'Bloco de estudos PRF', areaId: 'intelectual' },
-    { id: 'habit-ingles', title: 'Conversação em inglês', areaId: 'intelectual' }
+    { id: 'habit-ingles', title: 'Conversação em inglês', areaId: 'intelectual' },
+    ...spiritualHabits()
   ];
   return { projects, goals, tasks, habits };
+}
+
+/** Práticas diárias da área Espiritual (check diário com sequência). */
+export const spiritualHabits = (): Habit[] => [
+  { id: 'habit-oracao', title: 'Oração', areaId: 'espiritual' },
+  { id: 'habit-gratidao', title: 'Gratidão', areaId: 'espiritual' },
+  { id: 'habit-proposito', title: 'Propósito · reler o porquê', areaId: 'espiritual' }
+];
+
+/** Metas da saúde vindas do Método CIS: começo em 85 kg, marco em 70 kg, meta 65 kg. */
+export const WEIGHT_GOAL = { targetKg: 65, checkpointsKg: [85, 70] } as const;
+
+/**
+ * Estruturas das Fases 4 em diante. Só o que já é real: cofres sem valor inventado,
+ * exames e rituais sem data, e a avaliação MAAS inicial registrada no Método CIS (pág. 45).
+ */
+export function seedLife(now = new Date()): Pick<MiveData, 'transactions' | 'vaults' | 'weights' | 'exams' | 'rituals' | 'maas' | 'areaEntries'> {
+  const at = now.toISOString();
+  return {
+    transactions: [],
+    vaults: [
+      { id: 'vault-cavu', name: 'Cofre Marca CAVU', targetCents: 0, deposits: [], createdAt: at },
+      { id: 'vault-apartamento', name: 'Entrada Apartamento Vista Mar', targetCents: 0, deposits: [], createdAt: at }
+    ],
+    weights: [],
+    exams: [
+      { id: 'exam-sangue', name: 'Exame de sangue' },
+      { id: 'exam-checkup', name: 'Checkup geral' },
+      { id: 'exam-odonto', name: 'Odontológico' }
+    ],
+    rituals: [
+      { id: 'ritual-cabelo', name: 'Cabelo · salão', intervalDays: 60 },
+      { id: 'ritual-unhas', name: 'Unhas', intervalDays: 15 },
+      { id: 'ritual-dermato', name: 'Dermatologista', intervalDays: 180 }
+    ],
+    maas: [{ id: 'maas-cis-inicial', date: toISODate(now), note: 'Avaliação inicial · Método CIS pág. 45', createdAt: at, scores: { espiritual: 7, familia: 6, conjugal: 5, social: 1, saude: 5, servir: 1, intelectual: 8, financeiro: 2, profissional: 3, emocional: 4 } }],
+    areaEntries: []
+  };
 }

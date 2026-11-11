@@ -6,6 +6,8 @@
 
 /* Mive · tokens de tema. Os canais RGB alimentam as cores semânticas do Tailwind. */
 @layer base {
+  /* Itens de grid não podem crescer além da coluna (evita rolagem horizontal escondida no celular). */
+  .grid > * { min-width: 0; }
   :root {
     color-scheme: light;
     --c-canvas: 255 255 255;
