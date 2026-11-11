@@ -4,6 +4,9 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { MobileNav } from './layout/BottomNav';
 import { TopNav } from './layout/TopNav';
 import { Waves } from './layout/Waves';
+import { AgendaPage } from './modules/agenda/AgendaPage';
+import { ProjetoDetail } from './modules/projetos/ProjetoDetail';
+import { ProjetosPage } from './modules/projetos/ProjetosPage';
 import { ConfiguracoesPage } from './modules/configuracoes/ConfiguracoesPage';
 import { EuSouDrawer } from './modules/eusou/EuSouDrawer';
 import { InicioPage } from './modules/inicio/InicioPage';
@@ -25,7 +28,10 @@ function Shell() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<InicioPage />} />
-          {['/agenda', '/areas', '/projetos', '/estudos', '/ideias', '/evolucao'].map(path => <Route key={path} path={path} element={<PlaceholderPage />} />)}
+          <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/projetos" element={<ProjetosPage />} />
+          <Route path="/projetos/:id" element={<ProjetoDetail />} />
+          {['/areas', '/estudos', '/ideias', '/evolucao'].map(path => <Route key={path} path={path} element={<PlaceholderPage />} />)}
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

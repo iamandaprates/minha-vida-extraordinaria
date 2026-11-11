@@ -6,3 +6,4 @@ export { Modal, Sheet } from './Modal';
 export { ProgressRing } from './ProgressRing';
 export { Tabs } from './Tabs';
 export { Tag } from './Tag';
+export { Select } from './Select';
