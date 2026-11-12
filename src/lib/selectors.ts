@@ -34,3 +34,8 @@ export function habitStreak(data: Pick<MiveData, 'habitChecks'>, habitId: string
   return streak;
 }
 export const vaultSaved = (vault: { deposits: { amountCents: number }[] }) => vault.deposits.reduce((sum, item) => sum + item.amountCents, 0);
+/** Separa "#tags" digitadas no texto da captura rápida: "Legging nova #CAVU" → título + ["CAVU"]. */
+export function parseCapture(text: string) {
+  const tags = [...text.matchAll(/#([\p{L}\p{N}_-]+)/gu)].map(match => match[1]);
+  return { title: text.replace(/#[\p{L}\p{N}_-]+/gu, '').replace(/\s{2,}/g, ' ').trim(), tags };
+}

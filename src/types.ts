@@ -28,7 +28,7 @@ export interface Settings {
  * - task_completed / task_reopened: conclusão (e correção) de uma tarefa
  * - unblock_used: usou uma intervenção do "Preciso Começar"
  */
-export type BehaviorKind = 'task_planned' | 'task_unplanned' | 'task_started' | 'session_paused' | 'session_resumed' | 'session_ended' | 'task_completed' | 'task_reopened' | 'unblock_used';
+export type BehaviorKind = 'task_planned' | 'task_unplanned' | 'task_started' | 'session_paused' | 'session_resumed' | 'session_ended' | 'task_completed' | 'task_reopened' | 'unblock_used' | 'card_reviewed';
 export interface BehaviorEvent {
   id: string;
   kind: BehaviorKind;
@@ -92,7 +92,41 @@ export interface Habit { id: string; title: string; areaId: AreaId; }
 export interface HabitCheck { habitId: string; date: ISODate; }
 
 /** Ideia da Geladeira de Potencial (a guia completa chega na Fase 5). */
-export interface Idea { id: string; title: string; description?: string; tags: string[]; createdAt: string; archivedAt?: string; }
+export interface Idea {
+  id: string;
+  title: string;
+  description?: string;
+  tags: string[];
+  links?: string[];
+  /** Imagem anexada, guardada localmente como data URL JPEG. */
+  image?: string;
+  /** Tarefa criada a partir desta ideia ("Transformar em tarefa"). */
+  taskId?: string;
+  createdAt: string;
+  archivedAt?: string;
+}
+
+/** Estudos: trilha → baralhos → cartões com revisão espaçada SM-2. */
+export interface Track { id: string; name: string; createdAt: string; }
+export interface Deck { id: string; trackId: string; name: string; createdAt: string; }
+export interface Flashcard {
+  id: string;
+  deckId: string;
+  front: string;
+  back: string;
+  /** Fator de facilidade do SM-2 (mínimo 1,3; começa em 2,5). */
+  ease: number;
+  /** Intervalo atual em dias. */
+  interval: number;
+  /** Repetições seguidas com acerto. */
+  repetitions: number;
+  /** Próxima revisão. */
+  due: ISODate;
+  lastReviewedAt?: string;
+  createdAt: string;
+}
+/** Notas livres da guia Estudos. */
+export interface StudyNotes { pat: string; shortList: string; }
 
 
 /** Livro-caixa manual (sem Open Banking). Valores em centavos para não perder precisão. */
@@ -154,6 +188,11 @@ export interface MiveData {
   rituals: Ritual[];
   maas: MaasAssessment[];
   areaEntries: AreaEntry[];
+  ideaTags: string[];
+  tracks: Track[];
+  decks: Deck[];
+  cards: Flashcard[];
+  studyNotes: StudyNotes;
 }
 
 export interface BackupFile {

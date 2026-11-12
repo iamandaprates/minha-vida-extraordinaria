@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { seedLife, seedPlan, spiritualHabits } from '../data/seed';
+import { defaultIdeaTags, seedLife, seedPlan, seedStudies, spiritualHabits } from '../data/seed';
+import { normalizeTag } from '../lib/selectors';
+import { sm2, type Rating } from '../lib/sm2';
 import { todayISO } from '../lib/dates';
-import type { AgendaBlock, AreaEntry, AreaId, BehaviorEvent, BehaviorKind, DeliveryRole, Exam, Goal, Habit, Idea, MaasAssessment, MiveData, Profile, Project, Ritual, Settings, Task, ThemeMode, Transaction, Vault, WeightEntry } from '../types';
+import type { AgendaBlock, AreaEntry, AreaId, BehaviorEvent, BehaviorKind, DeliveryRole, Deck, Exam, Flashcard, Goal, Habit, Idea, MaasAssessment, MiveData, Profile, Project, Ritual, Settings, StudyNotes, Task, ThemeMode, Track, Transaction, Vault, WeightEntry } from '../types';
 import { idbStorage, SCHEMA_VERSION, STORAGE_KEY } from './storage';
 
 const prefersDark = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
@@ -18,7 +20,9 @@ export const initialData = (): MiveData => ({
   blocks: [],
   habitChecks: [],
   ideas: [],
-  ...seedLife()
+  ...seedLife(),
+  ideaTags: defaultIdeaTags(),
+  ...seedStudies()
 });
 
 type Draft<T> = Omit<T, 'id' | 'createdAt'>;
@@ -59,6 +63,26 @@ interface MiveActions {
   addHabit(title: string, areaId: AreaId): void;
   deleteHabit(habitId: string): void;
   addIdea(draft: Omit<Draft<Idea>, 'archivedAt'>): Idea;
+  updateIdea(ideaId: string, change: Partial<Draft<Idea>>): void;
+  deleteIdea(ideaId: string): void;
+  /** Cria uma tarefa no projeto a partir da ideia e guarda o vínculo. */
+  ideaToTask(ideaId: string, projectId?: string): Task | undefined;
+  addIdeaTag(tag: string): string | undefined;
+  renameIdeaTag(from: string, to: string): void;
+  removeIdeaTag(tag: string): void;
+
+  addTrack(name: string): void;
+  renameTrack(trackId: string, name: string): void;
+  deleteTrack(trackId: string): void;
+  addDeck(trackId: string, name: string): void;
+  renameDeck(deckId: string, name: string): void;
+  deleteDeck(deckId: string): void;
+  addCard(deckId: string, front: string, back: string): void;
+  updateCard(cardId: string, change: Partial<Pick<Flashcard, 'front' | 'back'>>): void;
+  deleteCard(cardId: string): void;
+  /** Aplica o SM-2 e registra a revisão no log comportamental. */
+  reviewCard(cardId: string, rating: Rating): void;
+  updateStudyNotes(change: Partial<StudyNotes>): void;
 
   /** Lança no livro-caixa. Com vaultId, também vira aporte no cofre. */
   addTransaction(draft: Draft<Transaction>): void;
@@ -146,7 +170,56 @@ export const useMive = create<MiveState>()(
         }),
         addHabit: (title, areaId) => { const habit: Habit = { id: id(), title: title.trim(), areaId }; set(state => ({ habits: [...state.habits, habit] })); },
         deleteHabit: habitId => set(state => ({ habits: state.habits.filter(habit => habit.id !== habitId), habitChecks: state.habitChecks.filter(check => check.habitId !== habitId) })),
-        addIdea: draft => { const idea: Idea = { ...draft, id: id(), createdAt: now() }; set(state => ({ ideas: [...state.ideas, idea] })); return idea; },
+        addIdea: draft => {
+          const idea: Idea = { ...draft, tags: [...new Set(draft.tags.map(normalizeTag).filter(Boolean))], id: id(), createdAt: now() };
+          set(state => ({ ideas: [idea, ...state.ideas], ideaTags: [...state.ideaTags, ...idea.tags.filter(tag => !state.ideaTags.some(item => item.toLowerCase() === tag.toLowerCase()))] }));
+          return idea;
+        },
+        updateIdea: (ideaId, change) => set(state => ({ ideas: state.ideas.map(idea => idea.id === ideaId ? { ...idea, ...change } : idea) })),
+        deleteIdea: ideaId => set(state => ({ ideas: state.ideas.filter(idea => idea.id !== ideaId) })),
+        ideaToTask: (ideaId, projectId) => {
+          const idea = get().ideas.find(item => item.id === ideaId);
+          if (!idea) return undefined;
+          const task = get().addTask({ title: idea.title, projectId });
+          get().updateIdea(ideaId, { taskId: task.id });
+          return task;
+        },
+        addIdeaTag: raw => {
+          const tag = normalizeTag(raw);
+          if (!tag) return undefined;
+          const existing = get().ideaTags.find(item => item.toLowerCase() === tag.toLowerCase());
+          if (existing) return existing;
+          set(state => ({ ideaTags: [...state.ideaTags, tag] }));
+          return tag;
+        },
+        renameIdeaTag: (from, raw) => {
+          const to = normalizeTag(raw);
+          if (!to || to === from) return;
+          const swap = (tags: string[]) => [...new Set(tags.map(tag => tag.toLowerCase() === from.toLowerCase() ? to : tag))];
+          set(state => ({ ideaTags: swap(state.ideaTags), ideas: state.ideas.map(idea => ({ ...idea, tags: swap(idea.tags) })), projects: state.projects.map(project => project.tag?.toLowerCase() === from.toLowerCase() ? { ...project, tag: to } : project) }));
+        },
+        removeIdeaTag: tag => set(state => ({ ideaTags: state.ideaTags.filter(item => item !== tag), ideas: state.ideas.map(idea => ({ ...idea, tags: idea.tags.filter(item => item !== tag) })) })),
+
+        addTrack: name => set(state => ({ tracks: [...state.tracks, { id: id(), name: name.trim(), createdAt: now() } as Track] })),
+        renameTrack: (trackId, name) => set(state => ({ tracks: state.tracks.map(track => track.id === trackId ? { ...track, name: name.trim() } : track) })),
+        deleteTrack: trackId => set(state => {
+          const decks = new Set(state.decks.filter(deck => deck.trackId === trackId).map(deck => deck.id));
+          return { tracks: state.tracks.filter(track => track.id !== trackId), decks: state.decks.filter(deck => !decks.has(deck.id)), cards: state.cards.filter(card => !decks.has(card.deckId)) };
+        }),
+        addDeck: (trackId, name) => set(state => ({ decks: [...state.decks, { id: id(), trackId, name: name.trim(), createdAt: now() } as Deck] })),
+        renameDeck: (deckId, name) => set(state => ({ decks: state.decks.map(deck => deck.id === deckId ? { ...deck, name: name.trim() } : deck) })),
+        deleteDeck: deckId => set(state => ({ decks: state.decks.filter(deck => deck.id !== deckId), cards: state.cards.filter(card => card.deckId !== deckId) })),
+        addCard: (deckId, front, back) => set(state => ({ cards: [...state.cards, { id: id(), deckId, front: front.trim(), back: back.trim(), ease: 2.5, interval: 0, repetitions: 0, due: todayISO(), createdAt: now() }] })),
+        updateCard: (cardId, change) => set(state => ({ cards: state.cards.map(card => card.id === cardId ? { ...card, ...change } : card) })),
+        deleteCard: cardId => set(state => ({ cards: state.cards.filter(card => card.id !== cardId) })),
+        reviewCard: (cardId, rating) => {
+          const card = get().cards.find(item => item.id === cardId);
+          if (!card) return;
+          const next = sm2(card, rating);
+          set(state => ({ cards: state.cards.map(item => item.id === cardId ? { ...item, ...next, lastReviewedAt: now() } : item) }));
+          log('card_reviewed', { meta: { cardId, rating, interval: next.interval } });
+        },
+        updateStudyNotes: change => set(state => ({ studyNotes: { ...state.studyNotes, ...change } })),
 
         addTransaction: draft => {
           const transaction: Transaction = { ...draft, id: id(), createdAt: now() };
@@ -194,7 +267,9 @@ export const useMive = create<MiveState>()(
         const data = persisted as Partial<MiveData>;
         if (version < 2) return { ...initialData(), ...data, ...seedPlan(), blocks: [], habitChecks: [], ideas: [] };
         /** Versão 2 (Fases 2 e 3) não tinha finanças, saúde, rituais, MAAS nem ferramentas de área. */
-        if (version < 3) return { ...data, ...seedLife(), habits: [...(data.habits ?? []), ...spiritualHabits().filter(habit => !data.habits?.some(item => item.id === habit.id))] };
+        if (version < 3) return { ...data, ...seedLife(), ideaTags: defaultIdeaTags(), ...seedStudies(), habits: [...(data.habits ?? []), ...spiritualHabits().filter(habit => !data.habits?.some(item => item.id === habit.id))] };
+        /** Versão 3 (Fase 4) não tinha estudos nem o gerenciador de tags. */
+        if (version < 4) return { ...data, ideaTags: [...new Set([...defaultIdeaTags(), ...(data.ideas ?? []).flatMap(idea => idea.tags)])], ...seedStudies() };
         return data;
       },
       onRehydrateStorage: () => () => useMive.setState({ hydrated: true })
@@ -204,6 +279,6 @@ export const useMive = create<MiveState>()(
 
 /** Os dados puros, sem as ações (o mesmo formato do backup). */
 export function selectData(state: MiveData): MiveData {
-  const { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries } = state;
-  return { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries };
+  const { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries, ideaTags, tracks, decks, cards, studyNotes } = state;
+  return { profile, settings, behaviorLog, projects, goals, tasks, blocks, habits, habitChecks, ideas, transactions, vaults, weights, exams, rituals, maas, areaEntries, ideaTags, tracks, decks, cards, studyNotes };
 }

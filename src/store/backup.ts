@@ -23,8 +23,11 @@ export async function readBackup(file: File): Promise<MiveData> {
   if ((backup.schemaVersion ?? 0) > SCHEMA_VERSION) throw new Error('Este backup foi feito por uma versão mais nova da Mive.');
   const data = backup.data as Partial<MiveData>;
   if (!data.settings || !Array.isArray(data.behaviorLog)) throw new Error('O backup está incompleto.');
-  // Backups da Fase 1 não têm projetos nem agenda: completa com o plano inicial.
+  // Backups antigos não têm as coleções das fases seguintes: completa com os valores iniciais.
   const base = initialData();
   const list = <K extends keyof MiveData>(key: K) => (Array.isArray(data[key]) ? data[key] : base[key]) as MiveData[K];
-  return { ...base, profile: data.profile ?? null, settings: { theme: data.settings.theme === 'dark' ? 'dark' : 'light', spotifyUrl: data.settings.spotifyUrl }, behaviorLog: data.behaviorLog, projects: list('projects'), goals: list('goals'), tasks: list('tasks'), blocks: list('blocks'), habits: list('habits'), habitChecks: list('habitChecks'), ideas: list('ideas') };
+  return { ...base, profile: data.profile ?? null, settings: { theme: data.settings.theme === 'dark' ? 'dark' : 'light', spotifyUrl: data.settings.spotifyUrl }, behaviorLog: data.behaviorLog, projects: list('projects'), goals: list('goals'), tasks: list('tasks'), blocks: list('blocks'), habits: list('habits'), habitChecks: list('habitChecks'), ideas: list('ideas'),
+    transactions: list('transactions'), vaults: list('vaults'), weights: list('weights'), exams: list('exams'), rituals: list('rituals'), maas: list('maas'), areaEntries: list('areaEntries'),
+    ideaTags: list('ideaTags'), tracks: list('tracks'), decks: list('decks'), cards: list('cards'),
+    studyNotes: { pat: typeof data.studyNotes?.pat === 'string' ? data.studyNotes.pat : '', shortList: typeof data.studyNotes?.shortList === 'string' ? data.studyNotes.shortList : '' } };
 }

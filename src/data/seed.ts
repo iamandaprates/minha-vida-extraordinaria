@@ -1,4 +1,4 @@
-import type { Goal, Habit, MiveData, Project, Task } from '../types';
+import type { Flashcard, Goal, Habit, MiveData, Project, Task } from '../types';
 import { toISODate } from '../lib/dates';
 
 /**
@@ -74,5 +74,25 @@ export function seedLife(now = new Date()): Pick<MiveData, 'transactions' | 'vau
     ],
     maas: [{ id: 'maas-cis-inicial', date: toISODate(now), note: 'Avaliação inicial · Método CIS pág. 45', createdAt: at, scores: { espiritual: 7, familia: 6, conjugal: 5, social: 1, saude: 5, servir: 1, intelectual: 8, financeiro: 2, profissional: 3, emocional: 4 } }],
     areaEntries: []
+  };
+}
+
+/** Tags iniciais da Geladeira de Potencial. */
+export const defaultIdeaTags = () => ['CAVU', 'CaféBaiano', 'Conteúdo'];
+
+/**
+ * Trilhas de estudo (Fase 5). Os únicos cartões são as 6 frases de inglês já usadas na v1:
+ * conteúdo de concurso não é inventado, ele entra pelas mãos da Mands.
+ */
+export function seedStudies(now = new Date()): Pick<MiveData, 'tracks' | 'decks' | 'cards' | 'studyNotes'> {
+  const at = now.toISOString(); const today = toISODate(now);
+  const deck = (id: string, trackId: string, name: string) => ({ id, trackId, name, createdAt: at });
+  const phrases: [string, string][] = [['How are you doing?', 'Como você está?'], ['I would like to schedule a meeting.', 'Eu gostaria de agendar uma reunião.'], ['Could you say that again, please?', 'Você pode repetir, por favor?'], ['I am working on my own brand.', 'Estou trabalhando na minha própria marca.'], ['What do you do for a living?', 'Com o que você trabalha?'], ['It is a pleasure to meet you.', 'É um prazer te conhecer.']];
+  const cards: Flashcard[] = phrases.map(([front, back], index) => ({ id: `card-en-${index + 1}`, deckId: 'deck-en-conversa', front, back, ease: 2.5, interval: 0, repetitions: 0, due: today, createdAt: at }));
+  return {
+    tracks: [{ id: 'track-prf', name: 'Concurso PRF', createdAt: at }, { id: 'track-adm', name: 'Administração', createdAt: at }, { id: 'track-ingles', name: 'Inglês', createdAt: at }],
+    decks: [deck('deck-prf-adm', 'track-prf', 'Direito Administrativo'), deck('deck-prf-const', 'track-prf', 'Direito Constitucional'), deck('deck-prf-port', 'track-prf', 'Língua Portuguesa'), deck('deck-adm-geral', 'track-adm', 'Administração Geral'), deck('deck-en-conversa', 'track-ingles', 'Conversação')],
+    cards,
+    studyNotes: { pat: '', shortList: '' }
   };
 }

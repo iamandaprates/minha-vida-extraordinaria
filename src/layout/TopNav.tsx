@@ -1,5 +1,6 @@
 import { Crown, Moon, Sun } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
+import { DueBadge } from './DueBadge';
 import { useMive } from '../store/useMive';
 import { cn } from '../ui';
 import { AvatarImage } from './Avatar';
@@ -31,7 +32,7 @@ export function TopNav({ onEuSou }: { onEuSou: () => void }) {
       <Link to="/" aria-label="Mive · Início" className="shrink-0 rounded-full pr-2"><Logo /></Link>
       <div className="flex min-w-0 flex-1 justify-center gap-1">
         {guides.map(guide => <NavLink key={guide.path} to={guide.path} end={guide.path === '/'} title={guide.label} className={({ isActive }) => cn('flex h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition', isActive ? 'bg-grad-magenta text-white shadow-magenta' : 'text-ink-soft hover:bg-rosa/70 hover:text-magenta dark:hover:bg-white/5')}>
-          <guide.icon size={17} strokeWidth={1.75} /><span className="hidden 2xl:inline">{guide.label}</span><span className="hidden xl:inline 2xl:hidden">{guide.short}</span>
+          <guide.icon size={17} strokeWidth={1.75} /><span className="hidden 2xl:inline">{guide.label}</span><span className="hidden xl:inline 2xl:hidden">{guide.short}</span>{guide.path === '/estudos' && <DueBadge />}
         </NavLink>)}
       </div>
       <div className="flex shrink-0 items-center gap-2">
