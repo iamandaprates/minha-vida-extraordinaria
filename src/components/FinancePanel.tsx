@@ -28,7 +28,7 @@ export function FinancePanel() {
 
   return <>
     <SectionHeading label="FINANÇAS" title="Seu capital com clareza" action={<Button variant="primary" onClick={() => setEntryKind('income')}><Icon as={Plus} size={16} /> Nova Transação</Button>} />
-    {mode === 'demo' && <p className="note">Modo local: os lançamentos ficam só nesta sessão até o Supabase ser conectado.</p>}
+    {mode === 'demo' && <p className="note is-calm">Modo local: seus lançamentos ficam salvos neste aparelho. Conecte o Supabase quando quiser ter cópia na nuvem.</p>}
 
     <section className="stat-grid stat-grid-4">
       <Card tone="noble" className="stat stat-hero"><span className="label">SALDO TOTAL</span><b>{formatBRL(overview.balanceCents + overview.vaultTotalCents)}</b><small>{overview.vaultTotalCents ? `${formatBRL(overview.vaultTotalCents)} guardados nos cofres` : 'Soma de entradas menos saídas'}</small></Card>
@@ -56,12 +56,12 @@ export function FinancePanel() {
     <section className="central-grid two">
       <div>
         <SectionHeading label="MOVIMENTAÇÕES" title="Últimos registros" />
-        <Card className="ledger">{entries.length ? entries.map(entry => <LedgerLine key={entry.id} entry={entry} vaultName={snapshot.vaults.find(vault => vault.id === entry.vaultId)?.name} />) : <EmptyState icon={Wallet}>Registre a primeira transação para começar. O saldo nasce dos seus lançamentos reais.</EmptyState>}</Card>
+        <Card className="ledger">{entries.length ? entries.map(entry => <LedgerLine key={entry.id} entry={entry} vaultName={snapshot.vaults.find(vault => vault.id === entry.vaultId)?.name} />) : <EmptyState icon={Wallet} title="Clareza começa com o primeiro registro">Lance uma receita ou um gasto. O saldo nasce só dos seus lançamentos reais.</EmptyState>}</Card>
         <p className="fine-print">Registros financeiros são históricos: uma correção entra como um novo lançamento.</p>
       </div>
       <div>
         <SectionHeading label="PARA ONDE FOI" title={`Gastos de ${overview.monthLabel}`} />
-        <Card className="category-card">{categories.length ? categories.map(item => <div key={item.category} className="category-line"><span>{categoryLabel(item.category as ExpenseCategory)}</span><b>{formatBRL(item.cents)}</b><ProgressBar value={maxCategory ? item.cents / maxCategory : 0} label={categoryLabel(item.category as ExpenseCategory)} /></div>) : <EmptyState icon={Gem}>Nenhum gasto registrado neste mês.</EmptyState>}</Card>
+        <Card className="category-card">{categories.length ? categories.map(item => <div key={item.category} className="category-line"><span>{categoryLabel(item.category as ExpenseCategory)}</span><b>{formatBRL(item.cents)}</b><ProgressBar value={maxCategory ? item.cents / maxCategory : 0} label={categoryLabel(item.category as ExpenseCategory)} /></div>) : <EmptyState icon={Gem} title="Mês em branco">Quando você registrar gastos, eles aparecem aqui por categoria.</EmptyState>}</Card>
         <GoalLinks />
       </div>
     </section>

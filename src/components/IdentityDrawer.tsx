@@ -31,7 +31,7 @@ export function IdentityDrawer({ onClose }: { onClose: () => void }) {
           {profile.imageDossier.palette.length > 0 && <div><small>Paleta recomendada</small><div className="swatches">{profile.imageDossier.palette.map(color => <span key={color} className="swatch" style={{ background: color }} title={color}><em>{color}</em></span>)}</div></div>}
           {profile.imageDossier.silhouette.length > 0 && <div><small>Linhas de silhueta</small><div className="chip-row">{profile.imageDossier.silhouette.map(item => <span key={item} className="chip">{item}</span>)}</div></div>}
           {profile.imageDossier.notes && <p className="support">{profile.imageDossier.notes}</p>}
-        </div> : <EmptyState icon={Palette}>Registre sua cartela, as linhas de silhueta que valorizam você e o seu arquétipo visual.</EmptyState>}
+        </div> : <EmptyState icon={Palette} title="Sua imagem, por escolha">Registre sua cartela, as linhas de silhueta que valorizam você e o seu arquétipo visual.</EmptyState>}
       </section>
       <section className="identity-block">
         <span className="label">MATRIZ SER · FAZER · TER</span>
@@ -45,7 +45,7 @@ export function IdentityDrawer({ onClose }: { onClose: () => void }) {
         <div className="identity-head"><span className="label">BANCO DE EVIDÊNCIAS</span><Button variant="ghost" onClick={() => setEvidenceOpen(!evidenceOpen)}><Icon as={Plus} size={15} /> Evidência</Button></div>
         {evidenceOpen && <EvidenceForm onSave={(title, date, note) => { addEvidence({ title, date, note }); setEvidenceOpen(false); }} />}
         {evidences.length ? <ul className="evidence-list">{evidences.map(item => <li key={item.id}><Icon as={Award} size={16} /><div><b>{item.title}</b><small>{item.date ? formatDay(item.date) : 'Sem data'}{item.note ? ` · ${item.note}` : ''}</small></div></li>)}</ul>
-          : <EmptyState icon={Crown}>Registre as vitórias que você já viveu. Nos dias de dúvida, elas lembram do que você é capaz.</EmptyState>}
+          : <EmptyState icon={Crown} title="Você já venceu antes">Registre as vitórias que já viveu. Nos dias de dúvida, elas lembram do que você é capaz.</EmptyState>}
       </section>
       {profile && <p className="fine-print">Versão de {new Date(profile.savedAt).toLocaleDateString('pt-BR')}. Cada edição cria uma nova versão e preserva as anteriores.</p>}
     </>}

@@ -38,18 +38,18 @@ export function IdeasPage() {
     </Card>
     <div className="ideas-toolbar">
       <Tabs label="Situação das ideias" value={view} onChange={setView} options={[{ key: 'inbox', label: `Caixa (${count('inbox')})` }, { key: 'converted', label: `Viraram tarefa (${count('converted')})` }, { key: 'archived', label: `Arquivo (${count('archived')})` }]} />
-      {tags.length > 0 && <div className="chip-row"><button type="button" className={`chip ${!tag ? 'selected' : ''}`} onClick={() => setTag(null)}>Todas</button>{tags.map(item => <button key={item} type="button" className={`chip ${tag === item ? 'selected' : ''}`} onClick={() => setTag(item)}>#{item}</button>)}</div>}
+      {tags.length > 0 && <div className="chip-row"><button type="button" className={`chip ${!tag ? 'selected' : ''}`} aria-pressed={!tag} onClick={() => setTag(null)}>Todas</button>{tags.map(item => <button key={item} type="button" className={`chip ${tag === item ? 'selected' : ''}`} aria-pressed={tag === item} onClick={() => setTag(item)}>#{item}</button>)}</div>}
     </div>
     {ideas.length ? <section className="idea-grid">{ideas.map(idea => <IdeaCard key={idea.id} idea={idea} onOpen={() => setOpen(idea.id)} />)}</section>
-      : <Card><EmptyState icon={Lightbulb}>{view === 'inbox' ? 'Caixa vazia. Quando surgir uma ideia da CAVU, do Café Baiano ou de qualquer coisa, ela cabe aqui.' : 'Nada por aqui ainda.'}</EmptyState></Card>}
+      : <Card>{view === 'inbox' ? <EmptyState icon={Lightbulb} title="Espaço livre para a próxima ideia">Quando surgir algo da CAVU, do Café Baiano ou de qualquer lugar, capture em segundos no campo acima.</EmptyState> : view === 'converted' ? <EmptyState icon={ArrowRightCircle} title="Ideia boa vira ação">As ideias que você transformar em tarefa aparecem aqui.</EmptyState> : <EmptyState icon={Archive} title="Arquivo vazio">O que você decidir guardar para depois fica aqui, sem ocupar a sua atenção.</EmptyState>}</Card>}
     {selected && <IdeaDialog idea={selected} onClose={() => setOpen(null)} />}
   </>;
 }
 
 export function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
   const cover = idea.media.find(item => item.kind === 'image');
-  return <Card className="idea-card" role="button" tabIndex={0} onClick={onOpen} onKeyDown={event => event.key === 'Enter' && onOpen()} style={{ ['--idea-color' as string]: ideaCategories[idea.category].color }}>
-    {cover && <img className="idea-cover" src={cover.url} alt="" />}
+  return <Card className="idea-card" role="button" tabIndex={0} onClick={onOpen} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onOpen(); } }} aria-label={`Abrir ideia: ${idea.title}`} style={{ ['--idea-color' as string]: ideaCategories[idea.category].color }}>
+    {cover && <img className="idea-cover" src={cover.url} alt="" loading="lazy" decoding="async" />}
     <span className="idea-tag">{ideaCategories[idea.category].label}</span>
     <h3>{idea.title}</h3>
     {idea.description && <p className="idea-desc">{idea.description}</p>}
@@ -83,13 +83,13 @@ export function IdeaDialog({ idea, onClose }: { idea: Idea; onClose: () => void 
         <Field label="Categoria"><select value={idea.category} onChange={event => save({ category: event.target.value as IdeaCategory })}>{(Object.keys(ideaCategories) as IdeaCategory[]).map(key => <option key={key} value={key}>{ideaCategories[key].label}</option>)}</select></Field>
         <Field label="Projeto"><select value={idea.projectId ?? ''} onChange={event => save({ projectId: event.target.value || undefined })}><option value="">Sem projeto</option>{snapshot.projects.map(project => <option key={project.id} value={project.id}>{project.title}</option>)}</select></Field>
       </div>
-      <Field label="Tags"><div className="tag-editor">{idea.tags.map(tag => <span key={tag} className="tag-pill">#{tag}<button type="button" onClick={() => save({ tags: idea.tags.filter(item => item !== tag) })} aria-label={`Remover #${tag}`}><Icon as={X} size={12} /></button></span>)}<input value={tagInput} onChange={event => setTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); addTag(); } }} onBlur={addTag} placeholder="#Marketing, #Conteúdo..." /></div></Field>
+      <Field label="Tags"><div className="tag-editor">{idea.tags.map(tag => <span key={tag} className="tag-pill">#{tag}<button type="button" onClick={() => save({ tags: idea.tags.filter(item => item !== tag) })} aria-label={`Remover #${tag}`}><Icon as={X} size={12} /></button></span>)}<input value={tagInput} onChange={event => setTagInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ',') { event.preventDefault(); addTag(); } }} onBlur={addTag} placeholder="#Marketing, #Conteúdo..." aria-label="Nova tag" /></div></Field>
       <Field label="Referências">
         <div className="media-list">{idea.media.map((media, index) => <div key={media.url + index} className={`media-item media-${media.kind}`}>
-          {media.kind === 'image' ? <img src={media.url} alt={media.name ?? 'Referência'} /> : <a href={media.url} target="_blank" rel="noreferrer"><Icon as={Link2} size={15} /> {media.name ?? media.url}</a>}
+          {media.kind === 'image' ? <img src={media.url} alt={media.name ?? 'Referência'} loading="lazy" decoding="async" /> : <a href={media.url} target="_blank" rel="noreferrer"><Icon as={Link2} size={15} /> {media.name ?? media.url}</a>}
           <button type="button" className="icon-chip" onClick={() => save({ media: idea.media.filter((_, position) => position !== index) })} aria-label="Remover referência"><Icon as={Trash2} size={14} /></button>
         </div>)}</div>
-        <div className="inline-add"><input value={link} onChange={event => setLink(event.target.value)} placeholder="Colar link de referência" aria-label="Link" onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addLink(); } }} /><button type="button" className="icon-chip" onClick={addLink} aria-label="Adicionar link"><Icon as={Hash} size={15} /></button><button type="button" className="icon-chip" onClick={() => file.current?.click()} aria-label="Enviar imagem"><Icon as={ImagePlus} size={15} /></button></div>
+        <div className="inline-add"><input value={link} onChange={event => setLink(event.target.value)} placeholder="Colar link de referência" aria-label="Link de referência" onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addLink(); } }} /><button type="button" className="icon-chip" onClick={addLink} aria-label="Adicionar link"><Icon as={Hash} size={15} /></button><button type="button" className="icon-chip" onClick={() => file.current?.click()} aria-label="Enviar imagem"><Icon as={ImagePlus} size={15} /></button></div>
         <input ref={file} type="file" accept="image/*" hidden onChange={event => { void upload(event.target.files?.[0]); event.target.value = ''; }} />
         {error && <small className="is-warn">{error}</small>}
       </Field>

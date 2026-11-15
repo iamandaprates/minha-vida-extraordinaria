@@ -50,7 +50,7 @@ export function EvolutionPage() {
     {instruments.length ? <>
       <Tabs label="Instrumento do CIS" value={tab} onChange={setTab} options={instruments.map(key => ({ key, label: cisLabels[key].tab }))} />
       {records.map(record => <CisCard key={record.id} record={record} />)}
-    </> : <Card><EmptyState icon={BarChart3}>Nenhum instrumento do CIS registrado.</EmptyState></Card>}
+    </> : <Card><EmptyState icon={BarChart3} title="Seu histórico começa aqui">Quando você registrar um instrumento do Método CIS, ele fica preservado nesta guia, cada um na própria aba.</EmptyState></Card>}
   </>;
 }
 
@@ -61,7 +61,7 @@ function CisCard({ record }: { record: CisRecord }) {
     <div className="card-head"><div><span className="label">{record.source.toUpperCase()}</span><h2>{record.title}</h2></div>{record.totalPoints !== undefined && <b className="big-number">{record.totalPoints} pts</b>}</div>
     <ul className="cis-scores">{record.scores.map(item => <li key={item.label} className={item.score !== null && item.score === lowest ? 'is-low' : ''}>
       <span>{item.label}</span>
-      <span className="cis-bar">{item.score === null ? <small>Não se aplica</small> : <ProgressBar value={item.score / record.scale} color={item.score <= 3 ? 'var(--magenta)' : item.score >= 8 ? 'var(--green)' : undefined} label={item.label} />}</span>
+      <span className="cis-bar">{item.score === null ? <small>Não se aplica</small> : <ProgressBar value={item.score / record.scale} color={item.score <= 3 ? 'var(--grad-care)' : item.score >= 8 ? 'var(--green)' : undefined} label={item.label} />}</span>
       <b>{item.score ?? '·'}</b>
     </li>)}</ul>
     {record.priorities && <div className="cis-meta"><span className="label">PRIORIDADES ORIGINAIS</span><div className="chip-row">{record.priorities.map((item, position) => <span key={item} className="chip selected">{position + 1}. {item}</span>)}</div></div>}

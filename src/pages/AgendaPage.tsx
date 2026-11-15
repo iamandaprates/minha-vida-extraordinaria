@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronLeft, ChevronRight, KeyRound, RefreshCw } from 'lucide-react';
+import { CalendarPlus, ChevronLeft, ChevronRight, KeyRound, RefreshCw, Sparkles } from 'lucide-react';
 import { useState, type CSSProperties } from 'react';
 import type { AgendaView } from '../app/navigation';
 import { eventSourceLabel } from '../domain/catalog';
@@ -9,7 +9,7 @@ import { useLife } from '../state/LifeStore';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Icon } from '../components/icons';
-import { AreaSelect, Dialog, Field, PageIntro, Tabs } from '../components/ui';
+import { AreaSelect, Dialog, Field, LinkButton, PageIntro, Tabs } from '../components/ui';
 
 const START_HOUR = 6; const END_HOUR = 24; const HOUR_PX = 52;
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -25,6 +25,7 @@ export function AgendaPage({ view, onViewChange }: { view: AgendaView; onViewCha
   const step = view === 'dia' ? 1 : 7;
   const title = view === 'dia' ? new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(anchor) : `${new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(days[0])} a ${new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' }).format(days[6])}`.replace(/\./g, '');
   const now = new Date();
+  const free = !days.some(day => eventsOfDay(snapshot.events, day).length);
 
   return <>
     <PageIntro eyebrow="AGENDA · TIMEBLOCKING" title="Compromissos & rotina" text="Cada bloco tem dono: uma área da vida. Planejar o tempo é o primeiro passo para executar." action={<Button variant="primary" onClick={() => setCreating('')}><Icon as={CalendarPlus} size={16} /> Novo Compromisso</Button>} />
@@ -33,6 +34,7 @@ export function AgendaPage({ view, onViewChange }: { view: AgendaView; onViewCha
       <Tabs label="Visualização" value={view} onChange={onViewChange} options={[{ key: 'dia', label: 'Dia' }, { key: 'semana', label: 'Semana' }]} />
       <div className="agenda-nav"><button type="button" className="icon-chip" onClick={() => setAnchor(addDays(anchor, -step))} aria-label="Anterior"><Icon as={ChevronLeft} size={16} /></button><b>{title}</b><button type="button" className="icon-chip" onClick={() => setAnchor(addDays(anchor, step))} aria-label="Próximo"><Icon as={ChevronRight} size={16} /></button><Button variant="ghost" onClick={() => setAnchor(startOfDay(new Date()))}>Hoje</Button></div>
     </div>
+    {free && <p className="agenda-empty"><Icon as={Sparkles} size={18} /><span><b>Vamos executar?</b> {view === 'dia' ? 'Este dia está livre' : 'Esta semana está livre'}. Dê dono ao seu tempo: comece pelo bloco da sua Prioridade Magna.</span><LinkButton onClick={() => setCreating('')}>Criar o primeiro bloco →</LinkButton></p>}
     <Card className={`timegrid timegrid-${view}`}>
       <div className="timegrid-head" style={{ '--cols': days.length } as CSSProperties}><span />{days.map(day => <span key={day.toISOString()} className={daysBetween(now, day) === 0 ? 'is-today' : ''}>{new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(day).replace('.', '')}<b>{day.getDate()}</b></span>)}</div>
       <div className="timegrid-body" style={{ '--cols': days.length, height: (END_HOUR - START_HOUR) * HOUR_PX } as CSSProperties}>

@@ -23,16 +23,34 @@ Centro de comando de execução da Mands: transforma planejamento em ação fís
 
 Na barra superior: **+ Registrar** (Transação, Peso, Demanda Rápida, Check-in de Hábitos), mini-player do Spotify (API oficial de embed, com gestão de playlists), **Eu Sou** (declarações MAVI, Dossiê de Imagem Pessoal, SER · FAZER · TER, referências e banco de evidências), tema claro ou escuro e perfil com foto. No celular, a barra vira uma barra inferior com gaveta de vidro.
 
+## Design
+
+- **Tipografia:** Sora em toda a interface (auto-hospedada, peso mínimo 400; títulos 600/700). Só o logotipo "Mive" mantém a serifada editorial.
+- **Cor:** magenta `#F31991` nas ações primárias (os botões usam `#DE1487` para o texto branco passar em contraste AA), lilás `#CFA3FF` em hover e acentos, sem vermelho: atraso e cuidado falam em magenta e âmbar.
+- **Tema escuro:** fundo `#0D0C14`, vidro `rgba(20, 10, 28, 0.85)` e bordas com reflexo lilás. Todos os tokens ficam em `src/styles/tokens.css`.
+- **Acessibilidade:** contraste AA nos dois temas, anel de foco magenta, alvos de toque de 44 px no celular e no tablet, diálogos com foco preso e Esc.
+
+## App instalável e offline
+
+A Mive é um PWA: no celular, "Adicionar à tela de início"; no computador, o ícone de instalar na barra de endereço.
+
+- O build gera `dist/sw.js` (plugin em `vite.config.ts`, modelo em `src/pwa/sw.template.js`), que guarda o app inteiro. Depois da primeira visita, a Mive abre sem internet.
+- **Modo local:** os registros ficam no IndexedDB do aparelho (`src/services/lifeStorage.ts`).
+- **Com Supabase:** a nuvem continua sendo a fonte da verdade; cada carga e cada gravação é espelhada no aparelho. Sem conexão, a Mive abre a última cópia e avisa. Alterações feitas sem internet ainda não são enviadas depois: isso é o motor de sincronização da próxima fase.
+- O service worker só existe no build de produção (`npm run build` e `npm run preview`), nunca no `npm run dev`.
+- Atalhos do app instalado abrem uma guia direto: `/?guia=agenda`, `metas`, `estudos`, `ideias`.
+
 ## Estrutura
 
 ```text
 src/
-  app/          App e navegação das 7 guias
+  app/          App, navegação das 7 guias e rotas carregadas sob demanda (routes.ts)
   pages/        uma página por guia
   components/   TopNav, Logo, FocusTimer, SpotifyMini, IdentityDrawer, painéis e primitivos
   domain/       models.ts, selectors.ts, reports.ts, catalog.ts
   data/         seed.ts (estado inicial real), areas.ts, demo.ts (modo local)
-  services/     Supabase, modo local, Google Calendar
+  services/     Supabase, modo local (IndexedDB), Google Calendar
+  pwa/          registro e modelo do service worker
   state/        LifeStore
   styles/       tokens.css e app.css (glassmorphism e Dark Luxury)
 supabase/migrations/  0001_lote1_base.sql, 0002_lote2_expansao.sql
@@ -64,6 +82,6 @@ npm run build
 
 Copie `.env.example` para `.env.local`.
 
-- Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, a Mive abre em **modo local**: o mesmo estado inicial real, em memória, só nesta sessão.
+- Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, a Mive abre em **modo local**: o mesmo estado inicial real, salvo neste aparelho (IndexedDB). Os registros continuam lá depois de recarregar e sem internet. Limpar os dados do site no navegador apaga esses registros.
 - Com o Supabase: rode `supabase/migrations/0001_lote1_base.sql` e depois `0002_lote2_expansao.sql` (idempotente: pode rodar de novo numa base que já tinha a versão anterior), ative o login Google no painel do Supabase e preencha as chaves. No primeiro acesso a Mive grava o estado inicial.
 - **Google Calendar:** com `VITE_GOOGLE_CLIENT_ID` (cliente OAuth do tipo Aplicativo da Web) o botão Conectar abre o consentimento do Google. Sem ele, dá para colar um token OAuth com escopo `calendar.readonly`. Tokens nunca são salvos.
