@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, Compass, Home, Lightbulb, Target, TrendingUp, type LucideIcon } from 'lucide-react';
+import { BookOpen, CalendarDays, HeartPulse, Home, Layers, Lightbulb, TrendingUp, type LucideIcon } from 'lucide-react';
 
 /** The 7 high-action guides of Mive. */
 export type Route = 'inicio' | 'agenda' | 'areas' | 'metas' | 'estudos' | 'ideias' | 'evolucao';
@@ -11,8 +11,8 @@ export type NavItem = { label: string; short: string; icon: LucideIcon; route: R
 export const navigation: NavItem[] = [
   { label: 'Início', short: 'Início', icon: Home, route: 'inicio' },
   { label: 'Agenda', short: 'Agenda', icon: CalendarDays, route: 'agenda' },
-  { label: 'Áreas da Vida', short: 'Áreas', icon: Compass, route: 'areas' },
-  { label: 'Projetos & Metas', short: 'Metas', icon: Target, route: 'metas' },
+  { label: 'Áreas', short: 'Áreas', icon: HeartPulse, route: 'areas' },
+  { label: 'Projetos', short: 'Projetos', icon: Layers, route: 'metas' },
   { label: 'Estudos', short: 'Estudos', icon: BookOpen, route: 'estudos' },
   { label: 'Ideias', short: 'Ideias', icon: Lightbulb, route: 'ideias' },
   { label: 'Evolução', short: 'Evolução', icon: TrendingUp, route: 'evolucao' }

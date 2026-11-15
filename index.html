@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Mive: centro de comando de execução. Planejamento, execução e evolução em um só lugar." />
-    <meta name="theme-color" content="#fbfbff" />
+    <meta name="theme-color" content="#0d0c14" />
     <meta name="color-scheme" content="light dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20,11 +20,11 @@
       // Applies the saved theme before the first paint, so the page never flashes the wrong one.
       (function () {
         var theme; try { theme = localStorage.getItem('mive-theme'); } catch (error) { /* preference only */ }
-        if (theme !== 'light' && theme !== 'dark') theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        if (theme !== 'light' && theme !== 'dark') theme = 'dark';
         if (theme === 'dark') { document.documentElement.classList.add('dark-mode'); document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0c14'); }
       })();
     </script>
-    <style>html { background: #fbfbff; } html.dark-mode { background: #0d0c14; }</style>
+    <style>html, html.dark-mode { background: #0d0c14; }</style>
   </head>
   <body><div id="root"></div><noscript>A Mive precisa de JavaScript para abrir.</noscript><script type="module" src="/src/main.tsx"></script></body>
 </html>

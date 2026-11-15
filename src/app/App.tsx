@@ -20,7 +20,7 @@ type Theme = 'light' | 'dark';
 const themeColor: Record<Theme, string> = { light: '#fbfbff', dark: '#0d0c14' };
 function readTheme(): Theme {
   try { const saved = localStorage.getItem('mive-theme'); if (saved === 'dark' || saved === 'light') return saved; } catch { /* preference only */ }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'dark';
 }
 /** `/?guia=agenda` opens a guide directly (used by the shortcuts of the installed app). */
 function readRoute(): Route {

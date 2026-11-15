@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, CalendarDays, Clock, Crown, GraduationCap, HeartPulse, Pin, Plus, RotateCcw, ShoppingBag, Sparkles, Wallet, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarDays, Clock, Crown, GraduationCap, HeartPulse, Home, Pin, Plus, RotateCcw, ShoppingBag, Sparkles, TrendingUp, Wallet, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Route, RouteParams } from '../app/navigation';
 import { checkupLabels, eventStatusLabel } from '../domain/catalog';
@@ -46,18 +46,28 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
   ];
 
   return <>
-    <header className="hero">
-      <div>
-        <span className="eyebrow">{new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(now)} <i>·</i> {new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)} <i>·</i> {formatTime(now.toISOString())}</span>
-        <h1>{greeting}, {name}.</h1>
-        <p className="hero-serif">Planejamento, execução e evolução.</p>
-      </div>
-      <Card className="assistant-card">
-        <Orb size="md" />
-        <div><span className="label">ASSISTENTE MIVE</span><h3><i className="status-dot" /> Pronta para apoiar</h3><p>Leio seus registros e organizo o que importa hoje.</p></div>
-        <Button variant="primary" onClick={onOpenAssistant}>Falar com a Mive</Button>
-      </Card>
+    <header className="personal-hero">
+      <div className="page-symbol"><Icon as={Home} size={25} /></div>
+      <div><span className="eyebrow">{greeting}, {name}</span><h1>Início</h1><p>Um lugar para enxergar o todo e seguir no seu ritmo.</p></div>
+      <div className="hero-arcs" aria-hidden="true" />
     </header>
+
+    <section className="panorama" aria-labelledby="panorama-title">
+      <div className="section-heading"><div><span className="eyebrow">SEU ESPAÇO</span><h2 id="panorama-title">Seu panorama</h2><p>Uma visão leve do que está em movimento.</p></div></div>
+      <div className="panorama-list">
+        <PanoramaCard icon={HeartPulse} title="Cuidar de mim" description="Acompanhe suas áreas da vida e seus próximos passos." badge="Áreas" onClick={() => onNavigate('areas')} />
+        <PanoramaCard icon={CalendarDays} title="Organize a semana" description="Tenha à vista os momentos que merecem atenção." badge="Agenda" onClick={() => onNavigate('agenda')} />
+        <PanoramaCard icon={TrendingUp} title="Olhe para trás com carinho" description="Perceba o quanto você já caminhou." badge="Evolução" onClick={() => onNavigate('evolucao')} />
+      </div>
+    </section>
+
+    <section className="soft-shortcuts" aria-label="Acessos rápidos">
+      <PanoramaCard icon={HeartPulse} title="Explorar áreas" description="Acompanhe diferentes partes da sua vida." onClick={() => onNavigate('areas')} compact />
+      <PanoramaCard icon={CalendarDays} title="Ver agenda" description="Encontre tempo para o que importa." onClick={() => onNavigate('agenda')} compact />
+      <PanoramaCard icon={TrendingUp} title="Ver evolução" description="Observe sua jornada de outro ângulo." onClick={() => onNavigate('evolucao')} compact />
+    </section>
+
+    <section className="section-heading today-heading"><div><span className="eyebrow">PARA HOJE</span><h2>O que quer cuidar agora?</h2><p>Suas ferramentas continuam aqui, mas sem transformar sua vida em uma planilha.</p></div></section>
 
     <section className="priority-row" aria-label="Prioridades do ciclo">{shortcuts.map(item => { const progress = item.goal ? goalProgress(snapshot, item.goal, now) : undefined; return <button key={item.label} type="button" className={`priority-card tone-${item.tone}`} onClick={item.go}>
       <span className="priority-icon"><Icon as={item.icon} size={20} /></span>
@@ -112,6 +122,14 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
     {newTask && <TaskDialog onClose={() => setNewTask(null)} defaults={{ focus: newTask }} />}
     {unblock && <UnblockDialog task={unblock} onClose={() => setUnblock(null)} />}
   </>;
+}
+
+function PanoramaCard({ icon, title, description, badge, onClick, compact = false }: { icon: typeof HeartPulse; title: string; description: string; badge?: string; onClick: () => void; compact?: boolean }) {
+  return <button type="button" className={`panorama-card ${compact ? 'is-compact' : ''}`} onClick={onClick}>
+    <span className="panorama-icon"><Icon as={icon} size={compact ? 20 : 22} /></span>
+    <span className="panorama-copy"><b>{title}</b><small>{description}</small></span>
+    {badge ? <span className="panorama-badge">{badge}</span> : <Icon as={ArrowRight} className="panorama-arrow" size={19} />}
+  </button>;
 }
 
 function DeliveryItem({ task, role }: { task: Task; role: FocusRole }) {
