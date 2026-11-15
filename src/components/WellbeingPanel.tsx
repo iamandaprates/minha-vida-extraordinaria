@@ -23,7 +23,7 @@ export function WellbeingPanel() {
       <p>{last ? `Foi ${formatAgo(last)} · retorno a cada ${ritual.intervalDays} dias.` : `Retorno a cada ${ritual.intervalDays} dias. Registre a última vez.`}</p>
       {next && <Tag tone={due ? 'building' : 'flow'}>{due ? 'Hora de agendar' : `Próximo em ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}`}</Tag>}
       <Button onClick={() => setRecord(ritual)}><Icon as={CalendarCheck} size={15} /> Registrar data</Button>
-    </Card>)}</section> : <Card><EmptyState>Nenhum ritual ainda.</EmptyState></Card>}
+    </Card>)}</section> : <Card><EmptyState title="Seu cuidado merece um ritmo">Cadastre um ritual (cabelo, unhas, pele) e a Mive lembra quando é hora de voltar.</EmptyState></Card>}
     <p className="fine-print">O dossiê de imagem (cartela, silhueta e arquétipo) fica na gaveta Eu Sou.</p>
     {record && <RecordDialog ritual={record} onClose={() => setRecord(null)} />}
     {edit && <RitualDialog ritual={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} />}

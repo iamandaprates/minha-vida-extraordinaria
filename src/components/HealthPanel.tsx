@@ -52,7 +52,7 @@ export function HealthPanel() {
         {shape && <ProgressBar value={shape.value} color="var(--green)" label="Caminho até a meta de peso" />}
         <WeightChart points={trend.history.map(item => ({ date: item.date, value: item.valueKg! }))} lines={measure ? [...measure.checkpointsKg, measure.targetKg] : []} />
         <ul className="weight-history">{trend.history.slice().reverse().slice(0, 6).map(item => <li key={item.id}><span>{formatDay(item.date)}</span><b>{formatKg(item.valueKg!)}</b>{item.note && <small>{item.note}</small>}</li>)}</ul>
-      </> : <EmptyState icon={Activity}>Registre o peso de hoje. Meta: 65 kg. Cada número é só informação.</EmptyState>}
+      </> : <EmptyState icon={Activity} title="O primeiro registro abre o caminho" action={<Button variant="primary" onClick={() => setWeightOpen(true)}><Icon as={Scale} size={16} /> Registrar peso de hoje</Button>}>Meta: 65 kg. Cada número é só informação, nunca um julgamento.</EmptyState>}
     </Card>
     {checkup && <CheckupDialog kind={checkup} onClose={() => setCheckup(null)} />}
     {weightOpen && <WeightDialog onClose={() => setWeightOpen(false)} />}

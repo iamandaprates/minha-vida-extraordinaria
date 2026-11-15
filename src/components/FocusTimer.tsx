@@ -91,12 +91,12 @@ function SessionEndDialog() {
 export function TimerCard({ deckId }: { deckId?: string }) {
   const timer = useFocusTimer();
   const { snapshot } = useLife();
-  const focus = todayFocus(snapshot);
-  const options = [
-    ...focus.deliveries.filter(task => !isTaskCompleted(task.id, snapshot.executions)).map(task => ({ value: `task:${task.id}`, label: task.title, target: { kind: 'task' as const, id: task.id, label: task.title } })),
+  // The clock re-renders this card twice a second: the list of targets only follows the data.
+  const options = useMemo(() => [
+    ...todayFocus(snapshot).deliveries.filter(task => !isTaskCompleted(task.id, snapshot.executions)).map(task => ({ value: `task:${task.id}`, label: task.title, target: { kind: 'task' as const, id: task.id, label: task.title } })),
     ...snapshot.studySubjects.filter(subject => !deckId || subject.deckId === deckId).map(subject => ({ value: `study:${subject.id}`, label: `${snapshot.studyDecks.find(deck => deck.id === subject.deckId)?.name ?? 'Estudo'} · ${subject.name}`, target: { kind: 'study' as const, id: subject.id, label: subject.name } })),
     { value: 'free', label: 'Foco livre', target: { kind: 'free' as const, label: 'foco livre' } }
-  ];
+  ], [snapshot, deckId]);
   const [choice, setChoice] = useState(options[0]?.value ?? 'free');
   const [minutes, setMinutes] = useState(DEFAULT_SESSION_MINUTES);
   const [reason, setReason] = useState('');
@@ -110,12 +110,12 @@ export function TimerCard({ deckId }: { deckId?: string }) {
     <div className="timer-body">
       <div className={`timer-dial ${timer.running ? 'is-running' : ''}`}>
         <svg viewBox="0 0 150 150" aria-hidden="true"><circle className="ring-track" cx="75" cy="75" r={radius} strokeWidth="8" /><circle className="ring-value timer-value" cx="75" cy="75" r={radius} strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - ratio)} transform="rotate(-90 75 75)" /></svg>
-        <b aria-live="polite">{formatClock(remaining)}</b>
+        <b role="timer" aria-label={`Tempo restante: ${Math.ceil(remaining / 60_000)} min`}>{formatClock(remaining)}</b>
       </div>
       <div className="timer-controls">
         {!active ? <>
           <Field label="No que você vai focar"><select value={choice} onChange={event => setChoice(event.target.value)}>{options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
-          <div className="chip-row">{SESSION_PRESETS.map(value => <button key={value} type="button" className={`chip ${minutes === value ? 'selected' : ''}`} onClick={() => setMinutes(value)}>{value} min</button>)}</div>
+          <div className="chip-row">{SESSION_PRESETS.map(value => <button key={value} type="button" className={`chip ${minutes === value ? 'selected' : ''}`} aria-pressed={minutes === value} onClick={() => setMinutes(value)}>{value} min</button>)}</div>
           <Button variant="primary" onClick={() => timer.start(options.find(option => option.value === choice)?.target ?? { kind: 'free', label: 'foco livre' }, minutes)}><Icon as={Play} size={16} /> Iniciar sessão</Button>
         </> : timer.running ? <>
           <p className="support">Celular longe, uma aba aberta. Só isso agora.</p>

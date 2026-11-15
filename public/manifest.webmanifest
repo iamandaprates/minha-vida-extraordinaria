@@ -1,11 +1,29 @@
 {
-  "name": "Mive",
+  "id": "/",
+  "name": "Mive · Minha Vida Extraordinária",
   "short_name": "Mive",
   "description": "Centro de comando de execução da Mands: planejamento, execução e evolução.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#fbfbff",
-  "theme_color": "#f3197d",
   "lang": "pt-BR",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0d0c14",
+  "theme_color": "#0d0c14",
+  "categories": ["productivity", "lifestyle", "health"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Agenda", "short_name": "Agenda", "description": "Compromissos e timeblocking", "url": "/?guia=agenda", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Projetos & Metas", "short_name": "Metas", "description": "Metas Magnas, projetos e lista de execução", "url": "/?guia=metas", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Estudos", "short_name": "Estudos", "description": "Sessões e flashcards", "url": "/?guia=estudos", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Capturar ideia", "short_name": "Ideias", "description": "Geladeira de potencial", "url": "/?guia=ideias", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
 }

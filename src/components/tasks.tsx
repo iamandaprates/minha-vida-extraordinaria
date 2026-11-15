@@ -1,11 +1,11 @@
-import { AlertTriangle, ArrowRight, CalendarClock, Check, Clock, Pin, PinOff } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarClock, Clock, Pin, PinOff } from 'lucide-react';
 import { useState } from 'react';
 import { originLabel, physicalActionIssue } from '../domain/catalog';
 import { toISODate, type FocusRole, type LifeSnapshot, type Task } from '../domain/models';
 import { areaOf, completionOf, formatDay, formatDue, formatTime, goalOfTask, isStalled, postponementsOf, todayFocus } from '../domain/selectors';
 import { useLife } from '../state/LifeStore';
 import { Icon } from './icons';
-import { AreaSelect, Dialog, Field } from './ui';
+import { AreaSelect, CheckMark, Dialog, Field } from './ui';
 
 const tomorrowAt = (task: Task) => { const base = new Date(); base.setDate(base.getDate() + 1); const due = task.dueAt ? new Date(task.dueAt) : undefined; base.setHours(due && task.dueHasTime ? due.getHours() : 12, due && task.dueHasTime ? due.getMinutes() : 0, 0, 0); return base.toISOString(); };
 
@@ -23,7 +23,7 @@ export function TaskLine({ task, snapshot, compact, showFocus = true }: { task: 
   const meta = [area?.name ?? 'Sem área', goal?.title ?? originLabel[task.origin], task.isMilestone ? 'Marco' : undefined, task.priority === 'high' ? 'Prioridade' : undefined].filter(Boolean).join(' · ');
   const when = completion ? `Concluída ${formatDay(completion.occurredAt).toLowerCase()} · ${formatTime(completion.occurredAt)}` : formatDue(task);
   return <div className={`task-line ${completion ? 'is-done' : ''} ${compact ? 'is-compact' : ''} ${stalled ? 'is-stalled' : ''}`}>
-    <button type="button" className="check" aria-label={`${completion ? 'Reabrir' : 'Concluir'} ${task.title}`} aria-pressed={Boolean(completion)} onClick={() => toggleTaskCompletion(task.id)}>{completion && <Icon as={Check} size={14} strokeWidth={2.2} />}</button>
+    <button type="button" className="check" aria-label={`${completion ? 'Reabrir' : 'Concluir'} ${task.title}`} aria-pressed={Boolean(completion)} onClick={() => toggleTaskCompletion(task.id)}><CheckMark done={Boolean(completion)} /></button>
     <div className="task-copy">
       <small><i className="area-dot" style={{ background: area?.color ?? 'var(--muted)' }} />{meta}</small>
       <strong>{task.title}</strong>

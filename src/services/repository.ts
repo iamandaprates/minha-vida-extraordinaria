@@ -13,7 +13,7 @@ export interface AuthService { currentUser(): Promise<AuthUser | null>; signInWi
 
 /**
  * What the app state talks to. One implementation per backend:
- * `demoDataService` (local mode in memory, same real seed) and `supabaseDataService` (cloud).
+ * `demoDataService` (local mode on this device, IndexedDB, same real seed) and `supabaseDataService` (cloud).
  */
 export interface DataService {
   readonly mode: 'demo' | 'cloud';
@@ -24,6 +24,8 @@ export interface DataService {
   save<C extends Collection>(collection: C, entity: EntityOf<C>): Promise<void>;
   /** Only plans can be removed. Facts are permanent history. */
   remove(collection: PlanCollection, userId: EntityId, id: EntityId): Promise<void>;
+  /** Something the person should know about the last load (offline copy, storage unavailable). */
+  notice?(): string | undefined;
 }
 
 export interface CalendarProvider { connect(): Promise<void>; listEvents(from: string, to: string): Promise<CalendarEvent[]>; upsertEvent(event: CalendarEvent): Promise<CalendarEvent>; }

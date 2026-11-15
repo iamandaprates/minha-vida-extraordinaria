@@ -1,4 +1,4 @@
-import { AlertTriangle, Flag, FolderKanban, Lock, Plus, Repeat } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Flag, FolderKanban, ListChecks, Lock, Plus, Repeat, Trophy } from 'lucide-react';
 import { useState, type CSSProperties } from 'react';
 import { formatBRL } from '../domain/catalog';
 import { cycleLabel, cycleOf } from '../domain/models';
@@ -47,17 +47,17 @@ export function GoalsPage() {
         </div>
         <div className="goal-foot"><span>{open.length ? `Próxima ação: ${open[0].title}` : 'Nenhuma ação aberta. Qual é o próximo passo físico?'}</span><Button variant="ghost" onClick={() => setTaskFor({ goalId: goal.id })}><Icon as={Plus} size={15} /> Ação</Button></div>
       </Card>;
-    }) : <Card><EmptyState icon={Flag}>Nenhuma meta ativa neste ciclo.</EmptyState></Card>}</section>
+    }) : <Card><EmptyState icon={Flag} title="Um ciclo novo começa aqui">Nenhuma Meta Magna ativa agora. Defina a primeira dentro de uma Área da Vida e o progresso passa a ser medido pelo que você faz.</EmptyState></Card>}</section>
 
     <SectionHeading label="PROJETOS ATIVOS" title="Construções em andamento" action={<Button onClick={() => setProjectOpen(true)}><Icon as={Plus} size={16} /> Projeto</Button>} />
-    <section className="project-grid">{projects.map(project => {
+    <section className="project-grid">{!projects.length && <Card><EmptyState icon={FolderKanban} title="O que você vai construir?" action={<Button variant="primary" onClick={() => setProjectOpen(true)}><Icon as={Plus} size={16} /> Criar projeto</Button>}>Um projeto reúne as ações de uma construção. Comece pelo que mais importa neste ciclo.</EmptyState></Card>}{projects.map(project => {
       const info = projectProgress(snapshot, project);
       const projectTasks = snapshot.tasks.filter(task => task.projectId === project.id).sort((a, b) => Number(isTaskCompleted(a.id, snapshot.executions)) - Number(isTaskCompleted(b.id, snapshot.executions)));
       return <Card key={project.id} className="project-detail">
         <div className="card-head"><div><small>{areaName(snapshot, project.areaId)}{project.focus ? ' · FOCO' : ''}</small><h2>{project.title}</h2></div><b className="big-number">{info.progress === undefined ? '·' : `${info.progress}%`}</b></div>
         <ProgressBar value={info.progress === undefined ? undefined : info.progress / 100} label={project.title} />
         <p className="fine-print">{formatActivity(info.lastActivityAt)}</p>
-        <div className="task-list">{projectTasks.length ? projectTasks.map(task => <TaskLine key={task.id} task={task} snapshot={snapshot} compact />) : <EmptyState>Nenhuma ação ainda. Qual é o primeiro passo?</EmptyState>}</div>
+        <div className="task-list">{projectTasks.length ? projectTasks.map(task => <TaskLine key={task.id} task={task} snapshot={snapshot} compact />) : <EmptyState icon={ListChecks} title="Vamos executar?">Qual é o primeiro passo físico deste projeto?</EmptyState>}</div>
         <Button variant="ghost" onClick={() => setTaskFor({ projectId: project.id })}><Icon as={Plus} size={15} /> Nova próxima ação</Button>
         {project.tag && <LinkedIdeas projectTag={project.tag} ideas={ideasOfProject(snapshot, project)} onOpen={setIdeaOpen} />}
       </Card>;
@@ -67,7 +67,7 @@ export function GoalsPage() {
 
     <SectionHeading label="TODAS AS AÇÕES" title="Lista de execução" action={<Tabs label="Filtro de ações" value={filter} onChange={setFilter} options={[{ key: 'open', label: 'Abertas' }, { key: 'stalled', label: `Paradas${stalled.length ? ` (${stalled.length})` : ''}` }, { key: 'done', label: 'Concluídas' }]} />} />
     {stalled.length > 0 && filter !== 'stalled' && <button type="button" className="stalled-banner" onClick={() => setFilter('stalled')}><Icon as={AlertTriangle} size={16} /> {stalled.length === 1 ? 'Uma tarefa foi adiada' : `${stalled.length} tarefas foram adiadas`} mais de duas vezes. Ver tarefas paradas →</button>}
-    <Card className="task-list">{tasks.length ? tasks.map(task => <TaskLine key={task.id} task={task} snapshot={snapshot} />) : <EmptyState>{filter === 'stalled' ? 'Nenhuma tarefa parada. Ciclos fechados.' : filter === 'done' ? 'Nada concluído ainda. A primeira vitória está a um clique.' : 'Nenhuma ação aberta.'}</EmptyState>}</Card>
+    <Card className="task-list">{tasks.length ? tasks.map(task => <TaskLine key={task.id} task={task} snapshot={snapshot} />) : (filter === 'stalled' ? <EmptyState icon={CheckCircle2} title="Nenhuma tarefa parada">Ciclos fechados. É assim que se constrói confiança em si mesma.</EmptyState> : filter === 'done' ? <EmptyState icon={Trophy} title="A primeira vitória está a um clique">Conclua uma ação e ela fica registrada aqui, com data e hora.</EmptyState> : <EmptyState icon={ListChecks} title="Vamos executar?" action={<Button variant="primary" onClick={() => setTaskFor({})}><Icon as={Plus} size={16} /> Próxima ação física</Button>}>Lista limpa. Escolha a próxima ação física e dê o primeiro passo.</EmptyState>)}</Card>
     <p className="fine-print">Concluir e adiar viram registros com data e hora. Reabrir não apaga a história: cria um registro de correção.</p>
 
     {taskFor && <TaskDialog onClose={() => setTaskFor(null)} defaults={taskFor} />}

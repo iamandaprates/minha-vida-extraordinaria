@@ -23,7 +23,7 @@ export function StudiesPage() {
   return <>
     <PageIntro eyebrow="ESTUDOS" title="Estudos" text={`Trilhas, matérias, sessões cronometradas e revisão espaçada no padrão Anki.${totalDue ? ` ${totalDue} ${totalDue === 1 ? 'cartão pendente' : 'cartões pendentes'} hoje.` : ''}`} action={<Button onClick={() => setCreating(true)}><Icon as={Plus} size={16} /> Nova trilha</Button>} />
     <div className="segmented" role="tablist" aria-label="Trilhas de estudo">{decks.map(item => { const due = dueCards(snapshot, item.id).length; return <button key={item.id} type="button" role="tab" aria-selected={deck?.id === item.id} className={deck?.id === item.id ? 'selected' : ''} onClick={() => setDeckId(item.id)}>{item.name}{due ? ` · ${due}` : ''}</button>; })}</div>
-    {deck ? <DeckView key={deck.id} deck={deck} /> : <Card><EmptyState icon={Layers}>Crie a primeira trilha de estudo.</EmptyState></Card>}
+    {deck ? <DeckView key={deck.id} deck={deck} /> : <Card><EmptyState icon={Layers} title="Todo aprendizado começa com uma trilha" action={<Button variant="primary" onClick={() => setCreating(true)}><Icon as={Plus} size={16} /> Criar a primeira trilha</Button>}>Concurso, idioma ou curso: dê um nome e organize matérias, sessões e flashcards.</EmptyState></Card>}
     {/* Reserved: Ciclo PAT and Short List de Revisão. They receive Mands' own structure when she brings it. */}
     <section className="reserved-grid">
       <Card tone="soft" className="reserved-card"><Icon as={ClipboardList} size={22} /><div><span className="label">CICLO PAT</span><h3>Espaço reservado</h3><p>O ciclo PAT do seu método entra aqui quando você trouxer a estrutura. Nada foi inventado no lugar.</p></div></Card>
@@ -57,7 +57,7 @@ function DeckView({ deck }: { deck: StudyDeck }) {
           <span className="subject-metric"><b>{formatMinutes(item.minutes)}</b><small>tempo</small></span>
           <span className="subject-metric"><b>{item.questions ? `${item.correct}/${item.questions}` : '·'}</b><small>acertos</small></span>
           <span className="subject-bar"><ProgressBar value={item.accuracy} color={deck.color} label={`Acertos em ${subject.name}`} /><small>{item.accuracy === undefined ? '·' : `${percent(item.accuracy)}%`}</small></span>
-        </button></li>; })}</ul> : <EmptyState>Adicione a primeira matéria desta trilha.</EmptyState>}
+        </button></li>; })}</ul> : <EmptyState icon={BookMarked} title="Vamos executar?">Adicione a primeira matéria logo abaixo e registre sua primeira sessão.</EmptyState>}
         <form className="inline-add" onSubmit={event => { event.preventDefault(); if (subjectName.trim()) { addStudySubject(subjectName, deck.id); setSubjectName(''); } }}><input value={subjectName} onChange={event => setSubjectName(event.target.value)} placeholder="Adicionar matéria" aria-label="Nova matéria" /><button type="submit" className="icon-chip" aria-label="Adicionar matéria"><Icon as={Plus} size={15} /></button></form>
         {deck.id === 'deck-prf' && <p className="fine-print">Lista inicial com as matérias mais cobradas para Agente Administrativo. Ajuste conforme o edital oficial.</p>}
       </Card>
@@ -104,17 +104,17 @@ function FlashcardTrainer({ deck }: { deck: StudyDeck }) {
     <section className="flash-layout">
       {card ? <div className="flash-stage">
         <div className={`flashcard ${flipped ? 'is-flipped' : ''}`}>
-          <span className="flash-face flash-front"><small>{deck.name}{cardSchedule(card, snapshot).isNew ? ' · novo' : ''}</small><b>{card.front}</b></span>
-          <span className="flash-face flash-back"><small>Resposta</small><b>{card.back}</b></span>
+          <span className="flash-face flash-front" aria-hidden={flipped}><small>{deck.name}{cardSchedule(card, snapshot).isNew ? ' · novo' : ''}</small><b>{card.front}</b></span>
+          <span className="flash-face flash-back" aria-hidden={!flipped}><small>Resposta</small><b>{card.back}</b></span>
         </div>
         {!flipped ? <Button variant="primary" onClick={() => setFlipped(true)}><Icon as={RotateCcw} size={16} /> Virar Cartão</Button>
           : <div className="flash-ratings">{ratings.map(rating => <button key={rating} type="button" className={`rating rating-${rating}`} onClick={() => rate(rating)}><b>{ratingLabels[rating]}</b><small>{preview(rating)}</small></button>)}</div>}
-      </div> : <Card className="flash-empty"><EmptyState icon={all.length ? BookMarked : Layers}>{all.length ? `Todas as revisões feitas.${next ? ` Próxima ${formatDay(next).toLowerCase()}.` : ''}` : 'Nenhum cartão nesta trilha ainda. Crie o primeiro.'}</EmptyState></Card>}
+      </div> : <Card className="flash-empty">{all.length ? <EmptyState icon={BookMarked} title="Revisões em dia">{`Tudo revisado. Disciplina é liberdade.${next ? ` Próxima revisão ${formatDay(next).toLowerCase()}.` : ''}`}</EmptyState> : <EmptyState icon={Layers} title="Seu primeiro cartão" action={<Button variant="primary" onClick={() => setAdding(true)}><Icon as={Plus} size={16} /> Criar cartão</Button>}>Pergunta na frente, resposta no verso. A revisão espaçada cuida do resto.</EmptyState>}</Card>}
       <Card className="retention-card">
         <span className="label">RETENÇÃO · 14 DIAS</span>
         <b className="big-number">{history.retention === undefined ? '·' : `${percent(history.retention)}%`}</b>
         <small className="support">{history.retention === undefined ? 'Aparece depois da segunda revisão de um cartão.' : 'Revisões respondidas sem "Novamente".'}</small>
-        <div className="retention-bars" aria-label="Revisões por dia">{history.series.map(day => <i key={day.date} title={`${formatDay(day.date)} · ${day.reviews} revisões`} style={{ height: `${Math.max(4, (day.reviews / maxReviews) * 100)}%`, opacity: day.reviews ? 1 : 0.25 }} />)}</div>
+        <div className="retention-bars" role="img" aria-label="Revisões por dia nos últimos 14 dias">{history.series.map(day => <i key={day.date} title={`${formatDay(day.date)} · ${day.reviews} revisões`} style={{ height: `${Math.max(4, (day.reviews / maxReviews) * 100)}%`, opacity: day.reviews ? 1 : 0.25 }} />)}</div>
         <small className="support">{history.reviewedToday} {history.reviewedToday === 1 ? 'revisão' : 'revisões'} hoje · {all.length} cartões na trilha</small>
       </Card>
     </section>

@@ -32,7 +32,7 @@ export function Avatar({ size = 40 }: { size?: number }) {
   const { snapshot, user } = useLife();
   const profile = snapshot.profiles[0];
   const name = profile?.displayName ?? user?.name ?? 'Mands';
-  return profile?.photoDataUrl ? <img className="avatar" src={profile.photoDataUrl} alt={name} width={size} height={size} style={{ width: size, height: size }} /> : <span className="avatar" style={{ width: size, height: size }}>{initials(name)}</span>;
+  return profile?.photoDataUrl ? <img className="avatar" src={profile.photoDataUrl} alt={name} width={size} height={size} decoding="async" style={{ width: size, height: size }} /> : <span className="avatar" style={{ width: size, height: size }}>{initials(name)}</span>;
 }
 
 /** Profile card: photo upload (resized to 256 px and saved in the LifeStore) and display name. */
@@ -44,10 +44,10 @@ export function ProfileMenu({ caption }: { caption: string }) {
   const input = useRef<HTMLInputElement>(null);
   const profile = snapshot.profiles[0];
   const [name, setName] = useState(profile?.displayName ?? user?.name ?? 'Mands');
-  useEffect(() => { if (!open) return; const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, [open]);
+  useEffect(() => { if (!open) return; const close = (event: MouseEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false); }; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); }; document.addEventListener('mousedown', close); document.addEventListener('keydown', onKey); return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', onKey); }; }, [open]);
   const upload = async (file?: File) => { if (!file) return; setError(''); try { setProfile({ photoDataUrl: await resizeImage(file) }); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha no upload.'); } };
   return <div className="profile-menu" ref={ref}>
-    <button type="button" className="avatar-button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Perfil"><Avatar /></button>
+    <button type="button" className="avatar-button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="dialog" aria-label="Perfil"><Avatar /></button>
     {open && <div className="profile-card" role="dialog" aria-label="Perfil">
       <button type="button" className="profile-photo" onClick={() => input.current?.click()} aria-label="Trocar foto"><Avatar size={84} /><span><Icon as={Camera} size={16} /></span></button>
       <input ref={input} type="file" accept="image/*" hidden onChange={event => { void upload(event.target.files?.[0]); event.target.value = ''; }} />

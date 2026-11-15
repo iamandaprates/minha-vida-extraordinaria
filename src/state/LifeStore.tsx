@@ -144,7 +144,10 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
         if (!active) return;
         if (!user) return dispatch({ type: 'status', status: 'signed-out' });
         const snapshot = await service.load(user.id);
-        if (active) dispatch({ type: 'hydrate', user, snapshot });
+        if (!active) return;
+        dispatch({ type: 'hydrate', user, snapshot });
+        const notice = service.notice?.();
+        if (notice) dispatch({ type: 'syncIssue', message: notice });
       } catch (error) {
         console.error(error);
         if (active) dispatch({ type: 'status', status: 'error', message: 'Não conseguimos abrir seus registros agora. Tente novamente em instantes.' });
@@ -156,7 +159,7 @@ export function LifeProvider({ service, children }: PropsWithChildren<{ service:
 
   const persist = useCallback(<C extends Collection>(collection: C, entity: EntityOf<C>) => {
     apply({ type: 'upsert', collection, entity });
-    service.save(collection, entity).then(() => dispatch({ type: 'syncIssue' }), error => { console.error(error); dispatch({ type: 'syncIssue', message: syncMessage }); });
+    service.save(collection, entity).then(() => dispatch({ type: 'syncIssue', message: service.notice?.() }), error => { console.error(error); dispatch({ type: 'syncIssue', message: syncMessage }); });
   }, [service, apply]);
 
   const discard = useCallback((collection: PlanCollection, userId: EntityId, id: EntityId) => {

@@ -1,5 +1,5 @@
-import { AlertTriangle, ArrowRight, Check, Clock, Crown, GraduationCap, HeartPulse, Pin, Plus, RotateCcw, ShoppingBag, Sparkles, Wallet, Zap } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowRight, CalendarDays, Clock, Crown, GraduationCap, HeartPulse, Pin, Plus, RotateCcw, ShoppingBag, Sparkles, Wallet, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Route, RouteParams } from '../app/navigation';
 import { checkupLabels, eventStatusLabel } from '../domain/catalog';
 import { toISODate, type FocusRole, type Goal, type Task } from '../domain/models';
@@ -11,7 +11,7 @@ import { TimerCard } from '../components/FocusTimer';
 import { Icon, iconByName } from '../components/icons';
 import { FocusPinDialog, TaskDialog } from '../components/tasks';
 import { UnblockDialog } from '../components/UnblockDialog';
-import { EmptyState, LinkButton, Orb, ProgressBar } from '../components/ui';
+import { CheckMark, EmptyState, LinkButton, Orb, ProgressBar } from '../components/ui';
 
 type Navigate = (route: Route, params?: RouteParams) => void;
 
@@ -25,13 +25,16 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
   const [unblock, setUnblock] = useState<Task | null>(null);
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const focus = todayFocus(snapshot, now);
-  const goals = activeGoals(snapshot, now);
-  const agenda = eventsOn(snapshot.events, now);
-  const alerts = getHealthAlerts(snapshot, now);
-  const missing = missingCheckups(snapshot);
-  const stalled = detectStalledTasks(snapshot);
-  const signals = lifeSignals(snapshot, now).filter(signal => !signal.id.startsWith('health-') && !signal.id.startsWith('stalled-')).slice(0, 3);
+  // Derived views follow the data and the clock (30 s), not every unrelated render.
+  const { focus, goals, agenda, alerts, missing, stalled, signals } = useMemo(() => ({
+    focus: todayFocus(snapshot, now),
+    goals: activeGoals(snapshot, now),
+    agenda: eventsOn(snapshot.events, now),
+    alerts: getHealthAlerts(snapshot, now),
+    missing: missingCheckups(snapshot),
+    stalled: detectStalledTasks(snapshot),
+    signals: lifeSignals(snapshot, now).filter(signal => !signal.id.startsWith('health-') && !signal.id.startsWith('stalled-')).slice(0, 3)
+  }), [snapshot, now]);
   const habits = snapshot.habits.filter(habit => habit.active);
   const todayISO = toISODate(now);
   const habitsDone = habits.filter(habit => isHabitDone(habit.id, todayISO, snapshot.habitCheckIns)).length;
@@ -86,18 +89,19 @@ export function HomePage({ name, onNavigate, onOpenAssistant }: { name: string; 
     <section className="home-grid three">
       <Card className="agenda-card">
         <div className="card-head"><div><span className="label">AGENDA DE HOJE</span><h2>{agenda.length ? `${agenda.length} ${agenda.length === 1 ? 'compromisso' : 'compromissos'}` : 'Dia aberto'}</h2></div><LinkButton onClick={() => onNavigate('agenda', { view: 'dia' })}>Agenda →</LinkButton></div>
-        {agenda.length ? <ol className="timeline">{agenda.map(event => <li key={event.id} className={Date.parse(event.endsAt) < now.getTime() ? 'is-past' : ''}><b>{formatTime(event.startsAt)}</b><span className="timeline-dot" style={{ background: snapshot.areas.find(area => area.id === event.areaId)?.color }} /><div><strong>{event.title}</strong><small>{areaName(snapshot, event.areaId)} · {eventStatusLabel[event.status]}</small></div></li>)}</ol> : <EmptyState>Nenhum compromisso hoje. Bloqueie o tempo das suas 3 ações.</EmptyState>}
+        {agenda.length ? <ol className="timeline">{agenda.map(event => <li key={event.id} className={Date.parse(event.endsAt) < now.getTime() ? 'is-past' : ''}><b>{formatTime(event.startsAt)}</b><span className="timeline-dot" style={{ background: snapshot.areas.find(area => area.id === event.areaId)?.color }} /><div><strong>{event.title}</strong><small>{areaName(snapshot, event.areaId)} · {eventStatusLabel[event.status]}</small></div></li>)}</ol> : <EmptyState icon={CalendarDays} title="Vamos executar?">O dia está aberto. Bloqueie o tempo das suas 3 entregas e ele passa a ter dono.</EmptyState>}
       </Card>
       <Card className="habits-today">
         <div className="card-head"><div><span className="label">HÁBITOS DE HOJE</span><h2>{habits.length ? `${habitsDone} de ${habits.length}` : 'Sem hábitos'}</h2></div><LinkButton onClick={() => onNavigate('metas')}>Metas →</LinkButton></div>
-        <ul className="habit-checks">{habits.map(habit => { const done = isHabitDone(habit.id, todayISO, snapshot.habitCheckIns); const streak = habitStreak(habit, snapshot.habitCheckIns, now); return <li key={habit.id}><button type="button" className={done ? 'is-done' : ''} aria-pressed={done} onClick={() => toggleHabit(habit.id)}><span className="check">{done && <Icon as={Check} size={14} strokeWidth={2.2} />}</span><Icon as={iconByName(habit.icon)} size={16} /><span>{habit.title}</span>{streak > 1 && <small>{streak} dias</small>}</button></li>; })}</ul>
+        <ul className="habit-checks">{habits.map(habit => { const done = isHabitDone(habit.id, todayISO, snapshot.habitCheckIns); const streak = habitStreak(habit, snapshot.habitCheckIns, now); return <li key={habit.id}><button type="button" className={done ? 'is-done' : ''} aria-pressed={done} onClick={() => toggleHabit(habit.id)}><span className="check"><CheckMark done={done} /></span><Icon as={iconByName(habit.icon)} size={16} /><span>{habit.title}</span>{streak > 1 && <small>{streak} dias</small>}</button></li>; })}</ul>
+        {!habits.length && <EmptyState icon={Sparkles} title="O primeiro hábito muda o jogo" action={<LinkButton onClick={() => onNavigate('metas')}>Criar em Projetos & Metas →</LinkButton>}>Escolha um movimento pequeno, que se repete e sustenta uma meta.</EmptyState>}
       </Card>
       <Card className="signals-card">
         <div className="card-head"><div><span className="label">BIO-MANUTENÇÃO & SINAIS</span><h2>{alerts.length ? 'Atenção preventiva' : 'O que merece atenção'}</h2></div></div>
         <ul className="signal-list">
           {missing.length > 0 && <li><button type="button" className="signal signal-attention" onClick={() => onNavigate('areas', { tab: 'saude' })}><span className="signal-icon"><Icon as={HeartPulse} size={16} /></span><span><small>Saúde</small><strong>Registre seus exames preventivos</strong><em>{missing.map(kind => checkupLabels[kind].title).join(', ')} sem data registrada.</em></span></button></li>}
           {signals.map(signal => <li key={signal.id}><button type="button" className={`signal signal-${signal.tone}`} onClick={() => onNavigate(signal.target, signal.areaId ? { areaId: signal.areaId } : undefined)}><span className="signal-icon"><Icon as={signal.tone === 'positive' ? Sparkles : AlertTriangle} size={16} /></span><span><small>{signal.area}</small><strong>{signal.title}</strong><em>{signal.detail}</em></span></button></li>)}
-          {!missing.length && !signals.length && <li><EmptyState>Tudo em ordem por aqui.</EmptyState></li>}
+          {!missing.length && !signals.length && <li><EmptyState title="Tudo em ordem por aqui">Disciplina é liberdade. Siga no seu ritmo.</EmptyState></li>}
         </ul>
       </Card>
     </section>
@@ -114,7 +118,7 @@ function DeliveryItem({ task, role }: { task: Task; role: FocusRole }) {
   const { snapshot, toggleTaskCompletion } = useLife();
   const done = isTaskCompleted(task.id, snapshot.executions);
   return <li className={`${done ? 'is-done' : ''} ${role === 'magna' ? 'is-magna' : ''}`}>
-    <button type="button" className="focus-check" aria-pressed={done} aria-label={`${done ? 'Reabrir' : 'Concluir'} ${task.title}`} onClick={() => toggleTaskCompletion(task.id)}>{done && <Icon as={Check} size={16} strokeWidth={2.4} />}</button>
+    <button type="button" className="focus-check" aria-pressed={done} aria-label={`${done ? 'Reabrir' : 'Concluir'} ${task.title}`} onClick={() => toggleTaskCompletion(task.id)}><CheckMark done={done} size={16} strokeWidth={2.4} /></button>
     <span><small>{role === 'magna' ? <><Icon as={Crown} size={12} /> PRIORIDADE MAGNA</> : 'SECUNDÁRIA'}</small><b>{task.title}</b><em>{areaName(snapshot, task.areaId)}{task.estimateMinutes ? ` · ${task.estimateMinutes} min` : ''}</em></span>
   </li>;
 }
